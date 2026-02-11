@@ -164,11 +164,8 @@ function generateReport() {
     const startWeek = getWeekNumber(startFriday);
     const endWeek = getWeekNumber(endFriday);
     console.log('Week range: ' + startWeek + ' to ' + endWeek);
-    // Generate all weeks in range
-    const weeks = [];
-    for (let w = startWeek; w <= endWeek; w++) {
-        weeks.push(w);
-    }
+    // Filter weeks
+    const weeks = Array.from(allWeeks).filter(w => w >= startWeek && w <= endWeek).sort((a,b)=>a-b);
     console.log('Filtered weeks:', weeks);
     if (weeks.length === 0) {
         reportDiv.innerHTML = '<p>No data for the selected date range.</p>';
