@@ -195,14 +195,18 @@ function generateReport() {
         html += `<td><strong>${deptTotal.toFixed(2)}</strong></td></tr>`;
         // Individual persons
         persons.forEach(person => {
-            html += `<tr><td>${person}</td>`;
             let personTotal = 0;
             weeks.forEach(w => {
-                const hours = processedData[dept][person][w] || 0;
-                html += `<td>${hours.toFixed(2)}</td>`;
-                personTotal += hours;
+                personTotal += processedData[dept][person][w] || 0;
             });
-            html += `<td>${personTotal.toFixed(2)}</td></tr>`;
+            if (personTotal > 0) {
+                html += `<tr><td>${person}</td>`;
+                weeks.forEach(w => {
+                    const hours = processedData[dept][person][w] || 0;
+                    html += `<td>${hours.toFixed(2)}</td>`;
+                });
+                html += `<td>${personTotal.toFixed(2)}</td></tr>`;
+            }
         });
     });
     html += '</tbody></table>';
