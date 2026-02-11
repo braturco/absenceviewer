@@ -86,6 +86,10 @@ function processData(data) {
             console.log('Skipping row due to department:', row['DEPARTMENT']);
             return;
         }
+        if (row['ABSENCE STATUS'] && (row['ABSENCE STATUS'].toUpperCase() === 'WITHDRAWN' || row['ABSENCE STATUS'].toUpperCase() === 'DENIED')) {
+            console.log('Skipping row due to status:', row['ABSENCE STATUS']);
+            return;
+        }
         const dept = row['DEPARTMENT'];
         const last = row['LAST NAME'] || '';
         const first = row['FIRST NAME'] || '';
@@ -217,7 +221,7 @@ function generateReport() {
                 deptTotal += hours;
             });
         });
-        html += `<tr class="dept-header"><td><strong>${dept}</strong></td>`;
+        html += `<tr class="dept-header" onclick="toggleDept('${dept}')"><td><strong>${dept}</strong></td>`;
         weeks.forEach(w => html += `<td><strong>${deptTotals[w].toFixed(2)}</strong></td>`);
         html += `<td><strong>${deptTotal.toFixed(2)}</strong></td></tr>`;
         // Individual persons
@@ -227,7 +231,7 @@ function generateReport() {
                 personTotal += processedData[dept][person][w] || 0;
             });
             if (personTotal > 0) {
-                html += `<tr><td>${person}</td>`;
+                html += `<tr data-dept="${dept}"><td>${person}</td>`;
                 weeks.forEach(w => {
                     const hours = processedData[dept][person][w] || 0;
                     html += `<td>${hours.toFixed(2)}</td>`;
@@ -270,4 +274,11 @@ function getWeekNumber(date) {
     const diffMs = friday - week1End;
     const diffWeeks = Math.floor(diffMs / (7 * 24 * 60 * 60 * 1000));
     return 1 + diffWeeks;
+}
+
+function toggleDept(dept) {
+    const rows = document.querySelectorAll(`tr[data-dept="${dept}"]`);
+    rows.forEach(row => {
+        row.style.display = row.style.display === 'none' ? '' : 'none';
+    });
 }
