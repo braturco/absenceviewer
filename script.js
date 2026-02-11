@@ -204,7 +204,7 @@ function generateReport() {
     }
     // Build table
     let html = '<table><thead><tr><th>Department / Person</th>';
-    weeks.forEach(w => html += `<th>Week ${w}</th>`);
+    weeks.forEach(w => html += `<th>Week ${w}<br>(${getWeekEndDate(w)})</th>`);
     html += '<th>Total</th></tr></thead><tbody>';
     // Group by department
     const depts = Object.keys(processedData).sort();
@@ -290,4 +290,13 @@ function toggleDept(deptId) {
         }
     });
     arrow.textContent = collapsed ? '▶' : '▼';
+}
+
+function getWeekEndDate(weekNum) {
+    const week1End = new Date('2025-12-26');
+    const endDate = new Date(week1End);
+    endDate.setDate(week1End.getDate() + (weekNum - 1) * 7);
+    const mm = (endDate.getMonth() + 1).toString().padStart(2, '0');
+    const dd = endDate.getDate().toString().padStart(2, '0');
+    return `${mm}/${dd}`;
 }
