@@ -20,34 +20,13 @@ let allWeeks = new Set();
 let rawData = []; // store the parsed CSV data
 let weeks = []; // for export
 
-const monthEnds = {
-    'Jan': 30,
-    'Feb': 57, // 30+27
-    'Mar': 84, //57+27
-    'Apr': 85, // assume 1 week
-    'May': 114, //85+29
-    'Jun': 140, //114+26
-    'Jul': 171, //140+31
-    'Aug': 199, //171+28
-    'Sep': 224, //199+25
-    'Oct': 254, //224+30
-    'Nov': 281, //254+27
-    'Dec': 312 //281+31
-};
-
-function getMonth(week) {
-    if (week <= monthEnds['Jan']) return 'Jan';
-    if (week <= monthEnds['Feb']) return 'Feb';
-    if (week <= monthEnds['Mar']) return 'Mar';
-    if (week <= monthEnds['Apr']) return 'Apr';
-    if (week <= monthEnds['May']) return 'May';
-    if (week <= monthEnds['Jun']) return 'Jun';
-    if (week <= monthEnds['Jul']) return 'Jul';
-    if (week <= monthEnds['Aug']) return 'Aug';
-    if (week <= monthEnds['Sep']) return 'Sep';
-    if (week <= monthEnds['Oct']) return 'Oct';
-    if (week <= monthEnds['Nov']) return 'Nov';
-    return 'Dec';
+function getWeekMonth(w) {
+    const week1End = new Date('2025-12-26');
+    const endDate = new Date(week1End);
+    endDate.setDate(week1End.getDate() + (w - 1) * 7);
+    const month = endDate.getMonth(); // 0-11
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return monthNames[month];
 }
 
 fileInput.addEventListener('change', handleFile);
@@ -245,7 +224,7 @@ function generateReport() {
     // Group weeks by month
     const monthGroups = {};
     weeks.forEach(w => {
-        const m = getMonth(w);
+        const m = getWeekMonth(w);
         if (!monthGroups[m]) monthGroups[m] = [];
         monthGroups[m].push(w);
     });
