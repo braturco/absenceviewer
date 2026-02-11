@@ -31,12 +31,16 @@ th {
 th:first-child, td:first-child {
     position: sticky;
     left: 0;
-    background-color: inherit;
+    background-color: white;
     z-index: 3;
 }
 
-tr.dept-header th:first-child {
+tr.dept-header td:first-child {
     background-color: #e0e0e0;
+}
+
+tr.overall-total td:first-child {
+    background-color: #d0d0d0;
 }
 
 tr:nth-child(even) td:first-child {
