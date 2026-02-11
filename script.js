@@ -95,6 +95,10 @@ function processData(data) {
             console.log('Skipping row due to status:', row['ABSENCE STATUS']);
             return;
         }
+        if (row['ABSENCE TYPE'] === 'Holiday') {
+            console.log('Skipping row due to type:', row['ABSENCE TYPE']);
+            return;
+        }
         if (!row['DEPARTMENT'] || !row['DEPARTMENT'].includes('WSP-ENV')) {
             console.log('Skipping row due to department:', row['DEPARTMENT']);
             return;
