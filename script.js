@@ -20,6 +20,36 @@ let allWeeks = new Set();
 let rawData = []; // store the parsed CSV data
 let weeks = []; // for export
 
+const monthEnds = {
+    'Jan': 30,
+    'Feb': 57, // 30+27
+    'Mar': 84, //57+27
+    'Apr': 85, // assume 1 week
+    'May': 114, //85+29
+    'Jun': 140, //114+26
+    'Jul': 171, //140+31
+    'Aug': 199, //171+28
+    'Sep': 224, //199+25
+    'Oct': 254, //224+30
+    'Nov': 281, //254+27
+    'Dec': 312 //281+31
+};
+
+function getMonth(week) {
+    if (week <= monthEnds['Jan']) return 'Jan';
+    if (week <= monthEnds['Feb']) return 'Feb';
+    if (week <= monthEnds['Mar']) return 'Mar';
+    if (week <= monthEnds['Apr']) return 'Apr';
+    if (week <= monthEnds['May']) return 'May';
+    if (week <= monthEnds['Jun']) return 'Jun';
+    if (week <= monthEnds['Jul']) return 'Jul';
+    if (week <= monthEnds['Aug']) return 'Aug';
+    if (week <= monthEnds['Sep']) return 'Sep';
+    if (week <= monthEnds['Oct']) return 'Oct';
+    if (week <= monthEnds['Nov']) return 'Nov';
+    return 'Dec';
+}
+
 fileInput.addEventListener('change', handleFile);
 generateBtn.addEventListener('click', generateReport);
 exportBtn.addEventListener('click', exportToExcel);
@@ -212,7 +242,15 @@ function generateReport() {
     for (let w = startWeek; w <= endWeek; w++) {
         weeks.push(w);
     }
+    // Group weeks by month
+    const monthGroups = {};
+    weeks.forEach(w => {
+        const m = getMonth(w);
+        if (!monthGroups[m]) monthGroups[m] = [];
+        monthGroups[m].push(w);
+    });
     console.log('Filtered weeks:', weeks);
+    console.log('Month groups:', monthGroups);
     if (weeks.length === 0) {
         reportDiv.innerHTML = '<p>No data for the selected date range.</p>';
         return;
@@ -224,9 +262,19 @@ function generateReport() {
     });
     legendHtml += '</div>';
     // Build table
-    let html = legendHtml + '<table><thead><tr><th>Department / Person</th>';
-    weeks.forEach(w => html += `<th>Week ${w}<br>(${getWeekEndDate(w)})</th>`);
-    html += '<th>Total</th></tr></thead><tbody>';
+    let html = legendHtml + '<table><thead>';
+    html += '<tr><th rowspan="2">Department / Person</th>';
+    Object.keys(monthGroups).forEach(m => {
+        html += `<th colspan="${monthGroups[m].length}">${m}</th>`;
+    });
+    html += '<th rowspan="2">Total</th></tr>';
+    html += '<tr>';
+    Object.keys(monthGroups).forEach(m => {
+        monthGroups[m].forEach(w => {
+            html += `<th>Week ${w}<br>(${getWeekEndDate(w)})</th>`;
+        });
+    });
+    html += '</tr></thead><tbody>';
     // Group by department
     const overallTotals = {};
     weeks.forEach(w => overallTotals[w] = { total: 0, statuses: new Set() });
@@ -297,8 +345,7 @@ function exportToExcel() {
     const ws = XLSX.utils.table_to_sheet(table);
     ws['!rows'] = [];
     let rowIndex = 1; // skip header
-    // Overall total
-    ws['!rows'][rowIndex] = { level: 0 };
+    // Overall total - no level
     rowIndex++;
     const depts = Object.keys(processedData).sort();
     depts.forEach(dept => {
