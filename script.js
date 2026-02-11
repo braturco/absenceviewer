@@ -107,8 +107,11 @@ function generateReport() {
     const endFriday = getClosestFriday(endDate, false);
     const startWeek = getWeekNumber(startFriday);
     const endWeek = getWeekNumber(endFriday);
-    // Filter weeks
-    const weeks = Array.from(allWeeks).filter(w => w >= startWeek && w <= endWeek).sort((a,b)=>a-b);
+    // Generate all weeks in range
+    const weeks = [];
+    for (let w = startWeek; w <= endWeek; w++) {
+        weeks.push(w);
+    }
     if (weeks.length === 0) {
         reportDiv.innerHTML = '<p>No data for the selected date range.</p>';
         return;
