@@ -87,9 +87,15 @@ function processData(data) {
         const normalPerDay = normal / 5;
         const uom = row['UOM'] || 'H';
         let startDurHours = startDur;
-        let endDurHours = endDur;
-        if (uom === 'D') {
+        if (startDur === 0) {
+            startDurHours = normalPerDay;
+        } else if (uom === 'D') {
             startDurHours *= normalPerDay;
+        }
+        let endDurHours = endDur;
+        if (endDur === 0) {
+            // Will calculate later
+        } else if (uom === 'D') {
             endDurHours *= normalPerDay;
         }
         // get all days from start to end
@@ -117,6 +123,11 @@ function processData(data) {
         }
         // For simplicity, assume daily rate is normalPerDay, and total matches Absence Duration
         const daily = normalPerDay;
+        // Calculate total so far without end
+        const totalSoFar = startDurHours + numMiddleWorking * daily;
+        if (endDur === 0) {
+            endDurHours = adjustedAbsenceDur - totalSoFar;
+        }
         // assign hours
         days.forEach((day, i) => {
             let hours = 0;
