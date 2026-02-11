@@ -34,10 +34,12 @@ function parseCSV(csv) {
         const row = {};
         headers.forEach((h, idx) => {
             let val = values[idx] ? values[idx].trim() : '';
-            // Try to parse as date
-            const parsedDate = new Date(val);
-            if (!isNaN(parsedDate)) {
-                val = parsedDate;
+            // Try to parse dates for date columns
+            if (h === 'Absence start date' || h === 'Absence end date') {
+                const parsedDate = new Date(val);
+                if (!isNaN(parsedDate)) {
+                    val = parsedDate;
+                }
             }
             row[h] = val;
         });
