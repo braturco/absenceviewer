@@ -48,6 +48,7 @@ function parseCSV(csv) {
         });
         data.push(row);
     }
+    console.log('Sample parsed row:', data[0]);
     return data;
 }
 
