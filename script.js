@@ -34,9 +34,10 @@ function parseCSV(csv) {
         const row = {};
         headers.forEach((h, idx) => {
             let val = values[idx] ? values[idx].trim() : '';
-            // Handle dates if they look like dates
-            if (val.match(/^\d{4}\/\d{1,2}\/\d{1,2}$/) || val.match(/^\d{1,2}\/\d{1,2}\/\d{4}$/)) {
-                val = new Date(val);
+            // Try to parse as date
+            const parsedDate = new Date(val);
+            if (!isNaN(parsedDate)) {
+                val = parsedDate;
             }
             row[h] = val;
         });
