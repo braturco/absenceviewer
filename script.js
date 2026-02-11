@@ -92,25 +92,31 @@ function processData(data) {
             startDurHours *= normalPerDay;
             endDurHours *= normalPerDay;
         }
-        // get working days only
+        // get all days from start to end
         const days = [];
         const current = new Date(start);
         while (current <= endDate) {
-            const dayOfWeek = current.getDay();
-            if (dayOfWeek >= 1 && dayOfWeek <= 5) { // Monday to Friday
-                days.push(new Date(current));
-            }
+            days.push(new Date(current));
             current.setDate(current.getDate() + 1);
         }
         if (days.length === 0) {
-            console.log('No working days for absence:', name, start, end);
+            console.log('No days for absence:', name, start, end);
             return;
         }
+        const totalDays = days.length;
+        const middleDays = totalDays - 2;
+        const absenceDur = parseFloat(row['Absence Duration']) || 0;
+        let adjustedAbsenceDur = absenceDur;
+        if (uom === 'D') {
+            adjustedAbsenceDur *= normalPerDay;
+        }
+        const middleHours = adjustedAbsenceDur - startDurHours - endDurHours;
+        const daily = middleDays > 0 ? middleHours / middleDays : 0;
         // assign hours
         days.forEach((day, i) => {
-            let hours = normalPerDay;
+            let hours = daily;
             if (i === 0) hours = startDurHours;
-            else if (i === days.length - 1) hours = endDurHours;
+            else if (i === totalDays - 1) hours = endDurHours;
             const week = getWeekNumber(day);
             allWeeks.add(week);
             if (!processedData[dept][name][week]) processedData[dept][name][week] = 0;
