@@ -95,8 +95,8 @@ function processData(data) {
             console.log('Skipping row due to status:', row['ABSENCE STATUS']);
             return;
         }
-        if (row['ABSENCE TYPE'] === 'Holiday') {
-            console.log('Skipping row due to type:', row['ABSENCE TYPE']);
+        if (row['ABSENCE TYPE'] === 'Holiday' && parseFloat(row['ABSENCE DURATION']) > 8) {
+            console.log('Skipping row due to Holiday with duration >8:', row['ABSENCE DURATION']);
             return;
         }
         if (!row['DEPARTMENT'] || !row['DEPARTMENT'].includes('WSP-ENV')) {
