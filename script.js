@@ -81,8 +81,8 @@ function processData(data) {
             console.log('Skipping row due to invalid dates:', start, end);
             return;
         }
-        const startDur = parseFloat(row['Start_Date_Duration']) || 0;
-        const endDur = parseFloat(row['End_Date_Duration']) || 0;
+        const startDur = parseFloat(row['START_DATE_DURATION']) || 0;
+        const endDur = parseFloat(row['END_DATE_DURATION']) || 0;
         const normal = parseFloat(row['Normal Working Hours']) || 40; // assume 40 if not
         const normalPerDay = normal / 5;
         const uom = row['UOM'] || 'H';

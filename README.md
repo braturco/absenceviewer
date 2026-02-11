@@ -19,8 +19,8 @@ The CSV file should contain columns including:
 - Absence duration
 - Department
 - Line Manager
-- Start_Date_Duration (hours on start date)
-- End_Date_Duration (hours on end date)
+- START_DATE_DURATION (hours on start date)
+- END_DATE_DURATION (hours on end date)
 - Normal Working Hours (per 5-day week)
 
 Dates should be in MM/DD/YYYY format.
