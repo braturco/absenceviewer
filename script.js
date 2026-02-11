@@ -209,28 +209,11 @@ function generateReport() {
     }
     processData(rawData);
     console.log('Selected range: ' + startDateInput.value + ' to ' + endDateInput.value);
-    // Find closest Friday on or after startDate
-    const startFriday = getClosestFriday(startDate, false); // on or after
-    // Find closest Friday on or after endDate
-    const endFriday = getClosestFriday(endDate, false);
-    const startWeek = getWeekNumber(startFriday);
-    const endWeek = getWeekNumber(endFriday);
-    console.log('Week range: ' + startWeek + ' to ' + endWeek);
-    // Generate all weeks in range
+    // Generate all weeks 1 to 52
     weeks = [];
-    if (startWeek <= endWeek) {
-        for (let w = startWeek; w <= endWeek; w++) {
-            weeks.push(w);
-        }
-    } else {
-        for (let w = startWeek; w <= 52; w++) {
-            weeks.push(w);
-        }
-        for (let w = 1; w <= endWeek; w++) {
-            weeks.push(w);
-        }
+    for (let w = 1; w <= 52; w++) {
+        weeks.push(w);
     }
-    weeks.sort((a, b) => a - b); // Sort ascending to put P12 at the end
     // Group weeks by month
     const monthGroups = {};
     weeks.forEach(w => {
