@@ -8,14 +8,32 @@ function handleFile(e) {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = function(e) {
-        const data = new Uint8Array(e.target.result);
-        const workbook = XLSX.read(data, {type: 'array', cellDates: true});
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-        const json = XLSX.utils.sheet_to_json(worksheet);
+        const csv = e.target.result;
+        const json = parseCSV(csv);
         processData(json);
     };
-    reader.readAsArrayBuffer(file);
+    reader.readAsText(file);
+}
+
+function parseCSV(csv) {
+    const lines = csv.split('\n');
+    const headers = lines[0].split(',').map(h => h.trim());
+    const data = [];
+    for (let i = 1; i < lines.length; i++) {
+        if (!lines[i].trim()) continue;
+        const values = lines[i].split(',');
+        const row = {};
+        headers.forEach((h, idx) => {
+            let val = values[idx] ? values[idx].trim() : '';
+            // Handle dates if they look like dates
+            if (val.match(/^\d{1,2}\/\d{1,2}\/\d{4}$/)) {
+                val = new Date(val);
+            }
+            row[h] = val;
+        });
+        data.push(row);
+    }
+    return data;
 }
 
 function processData(data) {
