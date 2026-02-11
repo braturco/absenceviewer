@@ -27,6 +27,7 @@ function handleFile(e) {
 function parseCSV(csv) {
     const lines = csv.split('\n');
     const headers = lines[0].split(',').map(h => h.trim().toUpperCase());
+    console.log('Headers:', headers);
     const data = [];
     for (let i = 1; i < lines.length; i++) {
         if (!lines[i].trim()) continue;
@@ -39,6 +40,8 @@ function parseCSV(csv) {
                 const parsedDate = new Date(val);
                 if (!isNaN(parsedDate)) {
                     val = parsedDate;
+                } else {
+                    console.log('Failed to parse date for', h, ':', val);
                 }
             }
             row[h] = val;
