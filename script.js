@@ -26,6 +26,8 @@ function getWeekMonth(w) {
     endDate.setDate(week1End.getDate() + (w - 1) * 7);
     const month = endDate.getMonth(); // 0-11
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    // Special case for April ending May 1
+    if (month === 4 && endDate.getDate() === 1) return 'Apr';
     return monthNames[month];
 }
 
@@ -214,6 +216,7 @@ function generateReport() {
     for (let w = 1; w <= 52; w++) {
         weeks.push(w);
     }
+    weeks.sort((a, b) => b - a); // Sort descending to put P12 at the start
     // Group weeks by month
     const monthGroups = {};
     weeks.forEach(w => {
