@@ -73,12 +73,15 @@ function processData(data) {
             endDurHours *= normalPerDay;
         }
         if (!start || !end) return;
-        // get days
+        // get working days only
         const days = [];
         const current = new Date(start);
         const endDate = new Date(end);
         while (current <= endDate) {
-            days.push(new Date(current));
+            const dayOfWeek = current.getDay();
+            if (dayOfWeek >= 1 && dayOfWeek <= 5) { // Monday to Friday
+                days.push(new Date(current));
+            }
             current.setDate(current.getDate() + 1);
         }
         // assign hours
