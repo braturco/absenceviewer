@@ -50,17 +50,34 @@ function processData(data) {
     // create departments map: dept -> person -> weeks: {week: hours}
     processedData = {};
     allWeeks = new Set();
+    let processedCount = 0;
     data.forEach(row => {
-        if (!row['Department'] || !row['Department'].includes('WSP-ENV')) return;
+        if (!row['Department'] || !row['Department'].includes('WSP-ENV')) {
+            console.log('Skipping row due to department:', row['Department']);
+            return;
+        }
         const dept = row['Department'];
         const last = row['Last Name'] || '';
         const first = row['First Name'] || '';
         const name = `${last}, ${first}`.trim();
-        if (!name) return;
+        if (!name) {
+            console.log('Skipping row due to empty name');
+            return;
+        }
         if (!processedData[dept]) processedData[dept] = {};
         if (!processedData[dept][name]) processedData[dept][name] = {};
         const start = row['Absence start date'];
         const end = row['Absence end date'];
+        if (!start || !end) {
+            console.log('Skipping row due to missing dates');
+            return;
+        }
+        const startDate = new Date(start);
+        const endDate = new Date(end);
+        if (isNaN(startDate) || isNaN(endDate)) {
+            console.log('Skipping row due to invalid dates:', start, end);
+            return;
+        }
         const startDur = parseFloat(row['Start_Date_Duration']) || 0;
         const endDur = parseFloat(row['End_Date_Duration']) || 0;
         const normal = parseFloat(row['Normal Working Hours']) || 40; // assume 40 if not
@@ -72,17 +89,19 @@ function processData(data) {
             startDurHours *= normalPerDay;
             endDurHours *= normalPerDay;
         }
-        if (!start || !end) return;
         // get working days only
         const days = [];
         const current = new Date(start);
-        const endDate = new Date(end);
         while (current <= endDate) {
             const dayOfWeek = current.getDay();
             if (dayOfWeek >= 1 && dayOfWeek <= 5) { // Monday to Friday
                 days.push(new Date(current));
             }
             current.setDate(current.getDate() + 1);
+        }
+        if (days.length === 0) {
+            console.log('No working days for absence:', name, start, end);
+            return;
         }
         // assign hours
         days.forEach((day, i) => {
@@ -94,7 +113,11 @@ function processData(data) {
             if (!processedData[dept][name][week]) processedData[dept][name][week] = 0;
             processedData[dept][name][week] += hours;
         });
+        processedCount++;
     });
+    console.log('Processed ' + processedCount + ' absences');
+    console.log('Departments:', Object.keys(processedData));
+    console.log('All weeks:', Array.from(allWeeks).sort());
 }
 
 function generateReport() {
@@ -104,17 +127,20 @@ function generateReport() {
         alert('Please select start and end dates');
         return;
     }
+    console.log('Selected range: ' + startDateInput.value + ' to ' + endDateInput.value);
     // Find closest Friday on or after startDate
     const startFriday = getClosestFriday(startDate, false); // on or after
     // Find closest Friday on or after endDate
     const endFriday = getClosestFriday(endDate, false);
     const startWeek = getWeekNumber(startFriday);
     const endWeek = getWeekNumber(endFriday);
+    console.log('Week range: ' + startWeek + ' to ' + endWeek);
     // Generate all weeks in range
     const weeks = [];
     for (let w = startWeek; w <= endWeek; w++) {
         weeks.push(w);
     }
+    console.log('Filtered weeks:', weeks);
     if (weeks.length === 0) {
         reportDiv.innerHTML = '<p>No data for the selected date range.</p>';
         return;
