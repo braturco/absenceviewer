@@ -41,6 +41,7 @@ function processData(data) {
     // create persons map: name -> weeks: {week: hours}
     const persons = {};
     data.forEach(row => {
+        if (!row['Department'] || !row['Department'].includes('WSP-ENV')) return;
         const last = row['Last Name'] || '';
         const first = row['First Name'] || '';
         const name = `${last}, ${first}`.trim();
@@ -94,9 +95,17 @@ function processData(data) {
 }
 
 function getWeekNumber(date) {
-    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-    const dayNum = d.getUTCDay() || 7;
-    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-    return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+    // Weeks end on Friday
+    // Week 1 ends on Dec 26, 2025
+    const week1End = new Date('2025-12-26');
+    // Get the Friday of the week for this date
+    const d = new Date(date);
+    const day = d.getDay(); // 0=Sun, 1=Mon, ..., 5=Fri, 6=Sat
+    const daysToFriday = (5 - day + 7) % 7;
+    const friday = new Date(d);
+    friday.setDate(d.getDate() + daysToFriday);
+    // Calculate weeks from week1End
+    const diffMs = friday - week1End;
+    const diffWeeks = Math.floor(diffMs / (7 * 24 * 60 * 60 * 1000));
+    return 1 + diffWeeks;
 }
