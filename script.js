@@ -26,12 +26,12 @@ function handleFile(e) {
 
 function parseCSV(csv) {
     const lines = csv.split('\n');
-    const headers = lines[0].split(',').map(h => h.trim().toUpperCase());
+    const headers = parseCSVLine(lines[0]).map(h => h.trim().toUpperCase());
     console.log('Headers:', headers);
     const data = [];
     for (let i = 1; i < lines.length; i++) {
         if (!lines[i].trim()) continue;
-        const values = lines[i].split(',');
+        const values = parseCSVLine(lines[i]);
         if (values.length !== headers.length) {
             console.log('Field count mismatch: headers', headers.length, 'values', values.length, 'row:', values);
             continue; // skip misaligned rows
@@ -54,6 +54,25 @@ function parseCSV(csv) {
     }
     console.log('Sample parsed row:', data[0]);
     return data;
+}
+
+function parseCSVLine(line) {
+    const result = [];
+    let current = '';
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        if (char === '"') {
+            inQuotes = !inQuotes;
+        } else if (char === ',' && !inQuotes) {
+            result.push(current);
+            current = '';
+        } else {
+            current += char;
+        }
+    }
+    result.push(current);
+    return result.map(s => s.trim());
 }
 
 function processData(data) {
