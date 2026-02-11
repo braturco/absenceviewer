@@ -104,19 +104,25 @@ function processData(data) {
             return;
         }
         const totalDays = days.length;
-        const middleDays = totalDays - 2;
+        const middleDays = days.slice(1, -1); // days between start and end
+        const middleWorkingDays = middleDays.filter(d => {
+            const dow = d.getDay();
+            return dow >= 1 && dow <= 5; // Mon-Fri
+        });
+        const numMiddleWorking = middleWorkingDays.length;
         const absenceDur = parseFloat(row['Absence Duration']) || 0;
         let adjustedAbsenceDur = absenceDur;
         if (uom === 'D') {
             adjustedAbsenceDur *= normalPerDay;
         }
         const middleHours = adjustedAbsenceDur - startDurHours - endDurHours;
-        const daily = middleDays > 0 ? middleHours / middleDays : 0;
+        const daily = numMiddleWorking > 0 ? middleHours / numMiddleWorking : 0;
         // assign hours
         days.forEach((day, i) => {
-            let hours = daily;
+            let hours = 0;
             if (i === 0) hours = startDurHours;
             else if (i === totalDays - 1) hours = endDurHours;
+            else if (middleWorkingDays.some(md => md.getTime() === day.getTime())) hours = daily;
             const week = getWeekNumber(day);
             allWeeks.add(week);
             if (!processedData[dept][name][week]) processedData[dept][name][week] = 0;
