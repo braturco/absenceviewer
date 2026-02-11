@@ -21,7 +21,7 @@ let rawData = []; // store the parsed CSV data
 let weeks = []; // for export
 
 function getWeekMonth(w) {
-    const week1End = new Date('2025-12-26');
+    const week1End = new Date('2026-01-09');
     const endDate = new Date(week1End);
     endDate.setDate(week1End.getDate() + (w - 1) * 7);
     const month = endDate.getMonth(); // 0-11
@@ -364,8 +364,8 @@ function getClosestFriday(date, before = false) {
 
 function getWeekNumber(date) {
     // Weeks end on Friday
-    // Week 1 ends on Dec 26, 2025
-    const week1End = new Date('2025-12-26');
+    // Week 1 ends on Jan 9, 2026
+    const week1End = new Date('2026-01-09');
     // Get the Friday of the week for this date
     const d = new Date(date);
     const day = d.getDay(); // 0=Sun, 1=Mon, ..., 5=Fri, 6=Sat
@@ -394,7 +394,7 @@ function toggleDept(deptId) {
 }
 
 function getWeekEndDate(weekNum) {
-    const week1End = new Date('2025-12-26');
+    const week1End = new Date('2026-01-09');
     const endDate = new Date(week1End);
     endDate.setDate(week1End.getDate() + (weekNum - 1) * 7);
     const mm = (endDate.getMonth() + 1).toString().padStart(2, '0');
