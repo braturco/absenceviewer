@@ -1,7 +1,15 @@
 const fileInput = document.getElementById('fileInput');
 const reportDiv = document.getElementById('report');
+const controlsDiv = document.getElementById('controls');
+const startDateInput = document.getElementById('startDate');
+const endDateInput = document.getElementById('endDate');
+const generateBtn = document.getElementById('generateBtn');
+
+let processedData = {}; // dept -> person -> week -> hours
+let allWeeks = new Set();
 
 fileInput.addEventListener('change', handleFile);
+generateBtn.addEventListener('click', generateReport);
 
 function handleFile(e) {
     const file = e.target.files[0];
@@ -11,6 +19,7 @@ function handleFile(e) {
         const csv = e.target.result;
         const json = parseCSV(csv);
         processData(json);
+        controlsDiv.style.display = 'block';
     };
     reader.readAsText(file);
 }
@@ -38,14 +47,18 @@ function parseCSV(csv) {
 
 function processData(data) {
     // data is array of objects
-    // create persons map: name -> weeks: {week: hours}
-    const persons = {};
+    // create departments map: dept -> person -> weeks: {week: hours}
+    processedData = {};
+    allWeeks = new Set();
     data.forEach(row => {
         if (!row['Department'] || !row['Department'].includes('WSP-ENV')) return;
+        const dept = row['Department'];
         const last = row['Last Name'] || '';
         const first = row['First Name'] || '';
         const name = `${last}, ${first}`.trim();
         if (!name) return;
+        if (!processedData[dept]) processedData[dept] = {};
+        if (!processedData[dept][name]) processedData[dept][name] = {};
         const start = row['Absence start date'];
         const end = row['Absence end date'];
         const startDur = parseFloat(row['Start_Date_Duration']) || 0;
@@ -67,31 +80,84 @@ function processData(data) {
             if (i === 0) hours = startDur;
             else if (i === days.length - 1) hours = endDur;
             const week = getWeekNumber(day);
-            if (!persons[name]) persons[name] = {};
-            if (!persons[name][week]) persons[name][week] = 0;
-            persons[name][week] += hours;
+            allWeeks.add(week);
+            if (!processedData[dept][name][week]) processedData[dept][name][week] = 0;
+            processedData[dept][name][week] += hours;
         });
     });
-    // now, get all weeks
-    const allWeeks = new Set();
-    Object.values(persons).forEach(p => Object.keys(p).forEach(w => allWeeks.add(w)));
-    const weeks = Array.from(allWeeks).sort((a,b)=>a-b);
-    // persons sorted
-    const names = Object.keys(persons).sort();
-    // build table
-    let html = '<table><thead><tr><th>Person</th>';
+}
+
+function generateReport() {
+    const startDate = new Date(startDateInput.value);
+    const endDate = new Date(endDateInput.value);
+    if (!startDate || !endDate) {
+        alert('Please select start and end dates');
+        return;
+    }
+    // Find closest Friday on or after startDate
+    const startFriday = getClosestFriday(startDate, false); // on or after
+    // Find closest Friday on or after endDate
+    const endFriday = getClosestFriday(endDate, false);
+    const startWeek = getWeekNumber(startFriday);
+    const endWeek = getWeekNumber(endFriday);
+    // Filter weeks
+    const weeks = Array.from(allWeeks).filter(w => w >= startWeek && w <= endWeek).sort((a,b)=>a-b);
+    if (weeks.length === 0) {
+        reportDiv.innerHTML = '<p>No data for the selected date range.</p>';
+        return;
+    }
+    // Build table
+    let html = '<table><thead><tr><th>Department / Person</th>';
     weeks.forEach(w => html += `<th>Week ${w}</th>`);
-    html += '</tr></thead><tbody>';
-    names.forEach(name => {
-        html += `<tr><td>${name}</td>`;
-        weeks.forEach(w => {
-            const hours = persons[name][w] || 0;
-            html += `<td>${hours.toFixed(2)}</td>`;
+    html += '<th>Total</th></tr></thead><tbody>';
+    // Group by department
+    const depts = Object.keys(processedData).sort();
+    depts.forEach(dept => {
+        // Department total row
+        const deptTotals = {};
+        weeks.forEach(w => deptTotals[w] = 0);
+        let deptTotal = 0;
+        const persons = Object.keys(processedData[dept]).sort();
+        persons.forEach(person => {
+            weeks.forEach(w => {
+                const hours = processedData[dept][person][w] || 0;
+                deptTotals[w] += hours;
+                deptTotal += hours;
+            });
         });
-        html += '</tr>';
+        html += `<tr class="dept-header"><td><strong>${dept}</strong></td>`;
+        weeks.forEach(w => html += `<td><strong>${deptTotals[w].toFixed(2)}</strong></td>`);
+        html += `<td><strong>${deptTotal.toFixed(2)}</strong></td></tr>`;
+        // Individual persons
+        persons.forEach(person => {
+            html += `<tr><td>${person}</td>`;
+            let personTotal = 0;
+            weeks.forEach(w => {
+                const hours = processedData[dept][person][w] || 0;
+                html += `<td>${hours.toFixed(2)}</td>`;
+                personTotal += hours;
+            });
+            html += `<td>${personTotal.toFixed(2)}</td></tr>`;
+        });
     });
     html += '</tbody></table>';
     reportDiv.innerHTML = html;
+}
+
+function getClosestFriday(date, before = false) {
+    const d = new Date(date);
+    const day = d.getDay(); // 0=Sun, 1=Mon, ..., 5=Fri, 6=Sat
+    let daysToAdd;
+    if (before) {
+        // closest Friday on or before
+        daysToAdd = (5 - day) % 7;
+        if (daysToAdd === 0 && day !== 5) daysToAdd = -7; // if not Friday, go back
+    } else {
+        // on or after
+        daysToAdd = (5 - day + 7) % 7;
+    }
+    d.setDate(d.getDate() + daysToAdd);
+    return d;
 }
 
 function getWeekNumber(date) {

@@ -8,8 +8,13 @@
 </head>
 <body>
     <h1>Company Absence Viewer</h1>
-    <p>Upload your .xls or .xlsx file containing absence data:</p>
+    <p>Upload your .csv file containing absence data:</p>
     <input type="file" id="fileInput" accept=".csv">
+    <div id="controls" style="display:none;">
+        <label>Start Date: <input type="date" id="startDate"></label>
+        <label>End Date: <input type="date" id="endDate"></label>
+        <button id="generateBtn">Generate Report</button>
+    </div>
     <div id="report"></div>
     <script src="script.js"></script>
 </body>
