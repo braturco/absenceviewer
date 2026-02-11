@@ -221,6 +221,7 @@ function generateReport() {
     for (let w = startWeek; w <= endWeek; w++) {
         weeks.push(w);
     }
+    weeks.sort((a, b) => b - a); // Sort descending to put earlier weeks at the end
     // Group weeks by month
     const monthGroups = {};
     weeks.forEach(w => {
@@ -375,7 +376,9 @@ function getWeekNumber(date) {
     // Calculate weeks from week1End
     const diffMs = friday - week1End;
     const diffWeeks = Math.floor(diffMs / (7 * 24 * 60 * 60 * 1000));
-    return 1 + diffWeeks;
+    let week = 1 + diffWeeks;
+    if (week <= 0) week += 52;
+    return week;
 }
 
 function toggleDept(deptId) {
