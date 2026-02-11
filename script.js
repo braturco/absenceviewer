@@ -82,12 +82,12 @@ function processData(data) {
     allWeeks = new Set();
     let processedCount = 0;
     data.forEach(row => {
-        if (!row['DEPARTMENT'] || !row['DEPARTMENT'].includes('WSP-ENV')) {
-            console.log('Skipping row due to department:', row['DEPARTMENT']);
+        if (row['ABSENCE STATUS'] === 'Withdrawn' || row['ABSENCE STATUS'] === 'Denied') {
+            console.log('Skipping row due to status:', row['ABSENCE STATUS']);
             return;
         }
-        if (row['ABSENCE STATUS'] && (row['ABSENCE STATUS'].toUpperCase() === 'WITHDRAWN' || row['ABSENCE STATUS'].toUpperCase() === 'DENIED')) {
-            console.log('Skipping row due to status:', row['ABSENCE STATUS']);
+        if (!row['DEPARTMENT'] || !row['DEPARTMENT'].includes('WSP-ENV')) {
+            console.log('Skipping row due to department:', row['DEPARTMENT']);
             return;
         }
         const dept = row['DEPARTMENT'];
@@ -209,6 +209,7 @@ function generateReport() {
     // Group by department
     const depts = Object.keys(processedData).sort();
     depts.forEach(dept => {
+        const deptId = dept.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '');
         // Department total row
         const deptTotals = {};
         weeks.forEach(w => deptTotals[w] = 0);
@@ -221,9 +222,9 @@ function generateReport() {
                 deptTotal += hours;
             });
         });
-        html += `<tr class="dept-header" onclick="toggleDept('${dept}')"><td><strong>${dept}</strong></td>`;
-        weeks.forEach(w => html += `<td><strong>${deptTotals[w].toFixed(2)}</strong></td>`);
-        html += `<td><strong>${deptTotal.toFixed(2)}</strong></td></tr>`;
+        html += `<tr class="dept-header" onclick="toggleDept('${deptId}')"><td><strong>${dept}</strong> <span id="arrow-${deptId}">▼</span></td>`;
+        weeks.forEach(w => html += `<td class="${deptTotals[w] === 0 ? 'zero' : ''}"><strong>${deptTotals[w].toFixed(2)}</strong></td>`);
+        html += `<td class="${deptTotal === 0 ? 'zero' : ''}"><strong>${deptTotal.toFixed(2)}</strong></td></tr>`;
         // Individual persons
         persons.forEach(person => {
             let personTotal = 0;
@@ -231,12 +232,12 @@ function generateReport() {
                 personTotal += processedData[dept][person][w] || 0;
             });
             if (personTotal > 0) {
-                html += `<tr data-dept="${dept}"><td>${person}</td>`;
+                html += `<tr class="person-row ${deptId}" style="display: table-row;"><td>${person}</td>`;
                 weeks.forEach(w => {
                     const hours = processedData[dept][person][w] || 0;
-                    html += `<td>${hours.toFixed(2)}</td>`;
+                    html += `<td class="${hours === 0 ? 'zero' : ''}">${hours.toFixed(2)}</td>`;
                 });
-                html += `<td>${personTotal.toFixed(2)}</td></tr>`;
+                html += `<td class="${personTotal === 0 ? 'zero' : ''}">${personTotal.toFixed(2)}</td></tr>`;
             }
         });
     });
@@ -276,9 +277,17 @@ function getWeekNumber(date) {
     return 1 + diffWeeks;
 }
 
-function toggleDept(dept) {
-    const rows = document.querySelectorAll(`tr[data-dept="${dept}"]`);
+function toggleDept(deptId) {
+    const rows = document.querySelectorAll(`.person-row.${deptId}`);
+    const arrow = document.getElementById(`arrow-${deptId}`);
+    let collapsed = false;
     rows.forEach(row => {
-        row.style.display = row.style.display === 'none' ? '' : 'none';
+        if (row.style.display === 'none') {
+            row.style.display = 'table-row';
+        } else {
+            row.style.display = 'none';
+            collapsed = true;
+        }
     });
+    arrow.textContent = collapsed ? '▶' : '▼';
 }

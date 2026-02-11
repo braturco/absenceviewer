@@ -34,3 +34,7 @@ tr.dept-header {
     font-weight: bold;
     cursor: pointer;
 }
+
+.zero {
+    color: #ccc;
+}
