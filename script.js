@@ -411,5 +411,7 @@ function getWeekEndDate(weekNum) {
     endDate.setDate(week1End.getDate() + (weekNum - 1) * 7);
     const mm = (endDate.getMonth() + 1).toString().padStart(2, '0');
     const dd = endDate.getDate().toString().padStart(2, '0');
-    return `${mm}/${dd}`;
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const day = days[endDate.getDay()];
+    return `${mm}/${dd} (${day})`;
 }
