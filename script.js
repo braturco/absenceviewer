@@ -26,7 +26,7 @@ function handleFile(e) {
 
 function parseCSV(csv) {
     const lines = csv.split('\n');
-    const headers = lines[0].split(',').map(h => h.trim());
+    const headers = lines[0].split(',').map(h => h.trim().toUpperCase());
     const data = [];
     for (let i = 1; i < lines.length; i++) {
         if (!lines[i].trim()) continue;
@@ -35,7 +35,7 @@ function parseCSV(csv) {
         headers.forEach((h, idx) => {
             let val = values[idx] ? values[idx].trim() : '';
             // Try to parse dates for date columns
-            if (h === 'Absence start date' || h === 'Absence end date') {
+            if (h === 'ABSENCE START DATE' || h === 'ABSENCE END DATE') {
                 const parsedDate = new Date(val);
                 if (!isNaN(parsedDate)) {
                     val = parsedDate;
@@ -55,13 +55,13 @@ function processData(data) {
     allWeeks = new Set();
     let processedCount = 0;
     data.forEach(row => {
-        if (!row['Department'] || !row['Department'].includes('WSP-ENV')) {
-            console.log('Skipping row due to department:', row['Department']);
+        if (!row['DEPARTMENT'] || !row['DEPARTMENT'].includes('WSP-ENV')) {
+            console.log('Skipping row due to department:', row['DEPARTMENT']);
             return;
         }
-        const dept = row['Department'];
-        const last = row['Last Name'] || '';
-        const first = row['First Name'] || '';
+        const dept = row['DEPARTMENT'];
+        const last = row['LAST NAME'] || '';
+        const first = row['FIRST NAME'] || '';
         const name = `${last}, ${first}`.trim();
         if (!name) {
             console.log('Skipping row due to empty name');
@@ -69,8 +69,8 @@ function processData(data) {
         }
         if (!processedData[dept]) processedData[dept] = {};
         if (!processedData[dept][name]) processedData[dept][name] = {};
-        const start = row['Absence start date'];
-        const end = row['Absence end date'];
+        const start = row['ABSENCE START DATE'];
+        const end = row['ABSENCE END DATE'];
         if (!start || !end) {
             console.log('Skipping row due to missing dates');
             return;
@@ -83,7 +83,7 @@ function processData(data) {
         }
         const startDur = parseFloat(row['START_DATE_DURATION']) || 0;
         const endDur = parseFloat(row['END_DATE_DURATION']) || 0;
-        const normal = parseFloat(row['Normal Working Hours']) || 40; // assume 40 if not
+        const normal = parseFloat(row['NORMAL WORKING HOURS']) || 40; // assume 40 if not
         const normalPerDay = normal / 5;
         const uom = row['UOM'] || 'H';
         let startDurHours = startDur;
@@ -116,7 +116,7 @@ function processData(data) {
             return dow >= 1 && dow <= 5; // Mon-Fri
         });
         const numMiddleWorking = middleWorkingDays.length;
-        const absenceDur = parseFloat(row['Absence Duration']) || 0;
+        const absenceDur = parseFloat(row['ABSENCE DURATION']) || 0;
         let adjustedAbsenceDur = absenceDur;
         if (uom === 'D') {
             adjustedAbsenceDur *= normalPerDay;
