@@ -218,10 +218,19 @@ function generateReport() {
     console.log('Week range: ' + startWeek + ' to ' + endWeek);
     // Generate all weeks in range
     weeks = [];
-    for (let w = startWeek; w <= endWeek; w++) {
-        weeks.push(w);
+    if (startWeek <= endWeek) {
+        for (let w = startWeek; w <= endWeek; w++) {
+            weeks.push(w);
+        }
+    } else {
+        for (let w = startWeek; w <= 52; w++) {
+            weeks.push(w);
+        }
+        for (let w = 1; w <= endWeek; w++) {
+            weeks.push(w);
+        }
     }
-    weeks.sort((a, b) => b - a); // Sort descending to put earlier weeks at the end
+    weeks.sort((a, b) => a - b); // Sort ascending to put P12 at the end
     // Group weeks by month
     const monthGroups = {};
     weeks.forEach(w => {
