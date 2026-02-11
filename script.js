@@ -4,8 +4,7 @@ const controlsDiv = document.getElementById('controls');
 const startDateInput = document.getElementById('startDate');
 const endDateInput = document.getElementById('endDate');
 const generateBtn = document.getElementById('generateBtn');
-const provinceSelect = document.getElementById('provinceSelect');
-const holidaySelect = document.getElementById('holidaySelect');
+const exportBtn = document.getElementById('exportBtn');
 
 const statusColors = {
     'Scheduled': 'green',
@@ -19,9 +18,11 @@ const statusColors = {
 let processedData = {}; // dept -> person -> week -> {total: hours, statuses: Set}
 let allWeeks = new Set();
 let rawData = []; // store the parsed CSV data
+let weeks = []; // for export
 
 fileInput.addEventListener('change', handleFile);
 generateBtn.addEventListener('click', generateReport);
+exportBtn.addEventListener('click', exportToExcel);
 
 function handleFile(e) {
     const file = e.target.files[0];
@@ -87,7 +88,7 @@ function parseCSVLine(line) {
     return result.map(s => s.trim());
 }
 
-function processData(data, includeHolidays = true, provinceFilter = '') {
+function processData(data) {
     // data is array of objects
     // create departments map: dept -> person -> weeks: {week: hours}
     processedData = {};
@@ -96,14 +97,6 @@ function processData(data, includeHolidays = true, provinceFilter = '') {
     data.forEach(row => {
         if (row['ABSENCE STATUS'] === 'Withdrawn' || row['ABSENCE STATUS'] === 'Denied') {
             console.log('Skipping row due to status:', row['ABSENCE STATUS']);
-            return;
-        }
-        if (!includeHolidays && row['ABSENCE TYPE'] === 'Holiday') {
-            console.log('Skipping row due to Holiday exclusion');
-            return;
-        }
-        if (provinceFilter && row['PROVINCE'] !== provinceFilter) {
-            console.log('Skipping row due to province filter:', row['PROVINCE']);
             return;
         }
         if (!row['DEPARTMENT'] || !row['DEPARTMENT'].includes('WSP-ENV')) {
@@ -196,17 +189,6 @@ function processData(data, includeHolidays = true, provinceFilter = '') {
     console.log('Processed ' + processedCount + ' absences');
     console.log('Departments:', Object.keys(processedData));
     console.log('All weeks:', Array.from(allWeeks).sort());
-    // Populate department select
-    const deptSelect = document.getElementById('departmentSelect');
-    deptSelect.innerHTML = '';
-    const depts = Object.keys(processedData).sort();
-    depts.forEach(dept => {
-        const option = document.createElement('option');
-        option.value = dept;
-        option.textContent = dept;
-        option.selected = true;
-        deptSelect.appendChild(option);
-    });
 }
 
 function generateReport() {
@@ -216,9 +198,7 @@ function generateReport() {
         alert('Please select start and end dates');
         return;
     }
-    const includeHolidays = holidaySelect.value === 'include';
-    const provinceFilter = provinceSelect.value;
-    processData(rawData, includeHolidays, provinceFilter);
+    processData(rawData);
     console.log('Selected range: ' + startDateInput.value + ' to ' + endDateInput.value);
     // Find closest Friday on or after startDate
     const startFriday = getClosestFriday(startDate, false); // on or after
@@ -228,7 +208,7 @@ function generateReport() {
     const endWeek = getWeekNumber(endFriday);
     console.log('Week range: ' + startWeek + ' to ' + endWeek);
     // Generate all weeks in range
-    const weeks = [];
+    weeks = [];
     for (let w = startWeek; w <= endWeek; w++) {
         weeks.push(w);
     }
@@ -248,10 +228,11 @@ function generateReport() {
     weeks.forEach(w => html += `<th>Week ${w}<br>(${getWeekEndDate(w)})</th>`);
     html += '<th>Total</th></tr></thead><tbody>';
     // Group by department
-    const selectedDepts = Array.from(document.getElementById('departmentSelect').selectedOptions).map(o => o.value);
+    const overallTotals = {};
+    weeks.forEach(w => overallTotals[w] = { total: 0, statuses: new Set() });
+    let overallTotal = 0;
     const depts = Object.keys(processedData).sort();
     depts.forEach(dept => {
-        if (!selectedDepts.includes(dept)) return;
         const deptId = dept.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '');
         // Department total row
         const deptTotals = {};
@@ -265,6 +246,11 @@ function generateReport() {
                 deptTotals[w].statuses = new Set([...deptTotals[w].statuses, ...data.statuses]);
                 deptTotal += data.total;
             });
+        });
+        weeks.forEach(w => {
+            overallTotals[w].total += deptTotals[w].total;
+            overallTotals[w].statuses = new Set([...overallTotals[w].statuses, ...deptTotals[w].statuses]);
+            overallTotal += deptTotals[w].total;
         });
         html += `<tr class="dept-header" onclick="toggleDept('${deptId}')"><td><strong>${dept}</strong> <span id="arrow-${deptId}">▼</span></td>`;
         weeks.forEach(w => {
@@ -292,8 +278,47 @@ function generateReport() {
             }
         });
     });
+    html += `<tr class="overall-total"><td><strong>Overall Total</strong></td>`;
+    weeks.forEach(w => {
+        const total = overallTotals[w].total;
+        const circles = Array.from(overallTotals[w].statuses).map(s => `<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background-color:${statusColors[s] || 'black'}; margin-left:2px;"></span>`).join('');
+        html += `<td class="${total === 0 ? 'zero' : ''}"><strong>${total.toFixed(2)}${circles}</strong></td>`;
+    });
+    html += `<td class="${overallTotal === 0 ? 'zero' : ''}"><strong>${overallTotal.toFixed(2)}</strong></td></tr>`;
     html += '</tbody></table>';
     reportDiv.innerHTML = html;
+    exportBtn.style.display = 'inline-block';
+}
+
+function exportToExcel() {
+    const table = document.querySelector('#report table');
+    if (!table) return;
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.table_to_sheet(table);
+    ws['!rows'] = [];
+    let rowIndex = 1; // skip header
+    // Overall total
+    ws['!rows'][rowIndex] = { level: 0 };
+    rowIndex++;
+    const depts = Object.keys(processedData).sort();
+    depts.forEach(dept => {
+        // dept header
+        ws['!rows'][rowIndex] = { level: 0 };
+        rowIndex++;
+        // persons
+        const persons = Object.keys(processedData[dept]).filter(person => {
+            let total = 0;
+            weeks.forEach(w => total += (processedData[dept][person][w] || {total:0}).total);
+            return total > 0;
+        });
+        persons.forEach(() => {
+            ws['!rows'][rowIndex] = { level: 1 };
+            rowIndex++;
+        });
+    });
+    XLSX.utils.book_append_sheet(wb, ws, 'Absence Report');
+    XLSX.writeFile(wb, 'absence_report.xlsx');
+}
 }
 
 function getClosestFriday(date, before = false) {

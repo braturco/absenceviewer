@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Absence Viewer</title>
     <link rel="stylesheet" href="style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
     <h1>Company Absence Viewer</h1>
@@ -13,30 +14,8 @@
     <div id="controls" style="display:none;">
         <label>Start Date: <input type="date" id="startDate"></label>
         <label>End Date: <input type="date" id="endDate"></label>
-        <label>Province: <select id="provinceSelect">
-            <option value="">All Provinces</option>
-            <option value="ON">Ontario</option>
-            <option value="QC">Quebec</option>
-            <option value="BC">British Columbia</option>
-            <option value="AB">Alberta</option>
-            <option value="MB">Manitoba</option>
-            <option value="SK">Saskatchewan</option>
-            <option value="NS">Nova Scotia</option>
-            <option value="NB">New Brunswick</option>
-            <option value="NL">Newfoundland and Labrador</option>
-            <option value="PE">Prince Edward Island</option>
-            <option value="NT">Northwest Territories</option>
-            <option value="NU">Nunavut</option>
-            <option value="YT">Yukon</option>
-        </select></label>
-        <label>Include Stat Holidays: <select id="holidaySelect">
-            <option value="exclude">Exclude</option>
-            <option value="include">Include</option>
-        </select></label>
-        <label>Departments: <select id="departmentSelect" multiple>
-            <!-- Options will be populated by JavaScript -->
-        </select></label>
         <button id="generateBtn">Generate Report</button>
+        <button id="exportBtn" style="display:none;">Export to Excel</button>
     </div>
     <div id="report"></div>
     <script src="script.js"></script>

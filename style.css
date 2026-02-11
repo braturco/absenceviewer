@@ -53,6 +53,11 @@ tr.dept-header {
     cursor: pointer;
 }
 
+tr.overall-total {
+    background-color: #d0d0d0;
+    font-weight: bold;
+}
+
 .zero {
     color: #ccc;
 }
