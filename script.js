@@ -319,7 +319,6 @@ function exportToExcel() {
     XLSX.utils.book_append_sheet(wb, ws, 'Absence Report');
     XLSX.writeFile(wb, 'absence_report.xlsx');
 }
-}
 
 function getClosestFriday(date, before = false) {
     const d = new Date(date);
