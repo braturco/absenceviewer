@@ -65,6 +65,13 @@ function processData(data) {
         const endDur = parseFloat(row['End_Date_Duration']) || 0;
         const normal = parseFloat(row['Normal Working Hours']) || 40; // assume 40 if not
         const normalPerDay = normal / 5;
+        const uom = row['UOM'] || 'H';
+        let startDurHours = startDur;
+        let endDurHours = endDur;
+        if (uom === 'D') {
+            startDurHours *= normalPerDay;
+            endDurHours *= normalPerDay;
+        }
         if (!start || !end) return;
         // get days
         const days = [];
@@ -77,8 +84,8 @@ function processData(data) {
         // assign hours
         days.forEach((day, i) => {
             let hours = normalPerDay;
-            if (i === 0) hours = startDur;
-            else if (i === days.length - 1) hours = endDur;
+            if (i === 0) hours = startDurHours;
+            else if (i === days.length - 1) hours = endDurHours;
             const week = getWeekNumber(day);
             allWeeks.add(week);
             if (!processedData[dept][name][week]) processedData[dept][name][week] = 0;
@@ -130,14 +137,18 @@ function generateReport() {
         html += `<td><strong>${deptTotal.toFixed(2)}</strong></td></tr>`;
         // Individual persons
         persons.forEach(person => {
-            html += `<tr><td>${person}</td>`;
             let personTotal = 0;
             weeks.forEach(w => {
-                const hours = processedData[dept][person][w] || 0;
-                html += `<td>${hours.toFixed(2)}</td>`;
-                personTotal += hours;
+                personTotal += processedData[dept][person][w] || 0;
             });
-            html += `<td>${personTotal.toFixed(2)}</td></tr>`;
+            if (personTotal > 0) {
+                html += `<tr><td>${person}</td>`;
+                weeks.forEach(w => {
+                    const hours = processedData[dept][person][w] || 0;
+                    html += `<td>${hours.toFixed(2)}</td>`;
+                });
+                html += `<td>${personTotal.toFixed(2)}</td></tr>`;
+            }
         });
     });
     html += '</tbody></table>';
