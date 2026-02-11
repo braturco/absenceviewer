@@ -5,7 +5,16 @@ const startDateInput = document.getElementById('startDate');
 const endDateInput = document.getElementById('endDate');
 const generateBtn = document.getElementById('generateBtn');
 
-let processedData = {}; // dept -> person -> week -> hours
+const statusColors = {
+    'Scheduled': 'green',
+    'Awaiting approval': 'yellow',
+    'Awaiting withdrawl approval': 'orange',
+    'Completed': 'blue',
+    'In progress': 'purple',
+    'Saved': 'gray'
+};
+
+let processedData = {}; // dept -> person -> week -> {total: hours, statuses: Set}
 let allWeeks = new Set();
 
 fileInput.addEventListener('change', handleFile);
@@ -167,8 +176,9 @@ function processData(data) {
             else if (middleWorkingDays.some(md => md.getTime() === day.getTime())) hours = daily;
             const week = getWeekNumber(day);
             allWeeks.add(week);
-            if (!processedData[dept][name][week]) processedData[dept][name][week] = 0;
-            processedData[dept][name][week] += hours;
+            if (!processedData[dept][name][week]) processedData[dept][name][week] = { total: 0, statuses: new Set() };
+            processedData[dept][name][week].total += hours;
+            processedData[dept][name][week].statuses.add(row['ABSENCE STATUS']);
         });
         processedCount++;
     });
@@ -202,8 +212,14 @@ function generateReport() {
         reportDiv.innerHTML = '<p>No data for the selected date range.</p>';
         return;
     }
+    // Build legend
+    let legendHtml = '<div id="legend"><strong>Status Legend:</strong> ';
+    Object.keys(statusColors).forEach(s => {
+        legendHtml += `<span style="margin-right:10px;">${s}: <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background-color:${statusColors[s]}; vertical-align:middle;"></span></span>`;
+    });
+    legendHtml += '</div>';
     // Build table
-    let html = '<table><thead><tr><th>Department / Person</th>';
+    let html = legendHtml + '<table><thead><tr><th>Department / Person</th>';
     weeks.forEach(w => html += `<th>Week ${w}<br>(${getWeekEndDate(w)})</th>`);
     html += '<th>Total</th></tr></thead><tbody>';
     // Group by department
@@ -212,30 +228,38 @@ function generateReport() {
         const deptId = dept.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '');
         // Department total row
         const deptTotals = {};
-        weeks.forEach(w => deptTotals[w] = 0);
+        weeks.forEach(w => deptTotals[w] = { total: 0, statuses: new Set() });
         let deptTotal = 0;
         const persons = Object.keys(processedData[dept]).sort();
         persons.forEach(person => {
             weeks.forEach(w => {
-                const hours = processedData[dept][person][w] || 0;
-                deptTotals[w] += hours;
-                deptTotal += hours;
+                const data = processedData[dept][person][w] || { total: 0, statuses: new Set() };
+                deptTotals[w].total += data.total;
+                deptTotals[w].statuses = new Set([...deptTotals[w].statuses, ...data.statuses]);
+                deptTotal += data.total;
             });
         });
         html += `<tr class="dept-header" onclick="toggleDept('${deptId}')"><td><strong>${dept}</strong> <span id="arrow-${deptId}">▼</span></td>`;
-        weeks.forEach(w => html += `<td class="${deptTotals[w] === 0 ? 'zero' : ''}"><strong>${deptTotals[w].toFixed(2)}</strong></td>`);
+        weeks.forEach(w => {
+            const total = deptTotals[w].total;
+            const circles = Array.from(deptTotals[w].statuses).map(s => `<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background-color:${statusColors[s] || 'black'}; margin-left:2px;"></span>`).join('');
+            html += `<td class="${total === 0 ? 'zero' : ''}"><strong>${total.toFixed(2)}${circles}</strong></td>`;
+        });
         html += `<td class="${deptTotal === 0 ? 'zero' : ''}"><strong>${deptTotal.toFixed(2)}</strong></td></tr>`;
         // Individual persons
         persons.forEach(person => {
             let personTotal = 0;
             weeks.forEach(w => {
-                personTotal += processedData[dept][person][w] || 0;
+                const data = processedData[dept][person][w] || { total: 0, statuses: new Set() };
+                personTotal += data.total;
             });
             if (personTotal > 0) {
                 html += `<tr class="person-row ${deptId}" style="display: table-row;"><td>${person}</td>`;
                 weeks.forEach(w => {
-                    const hours = processedData[dept][person][w] || 0;
-                    html += `<td class="${hours === 0 ? 'zero' : ''}">${hours.toFixed(2)}</td>`;
+                    const data = processedData[dept][person][w] || { total: 0, statuses: new Set() };
+                    const hours = data.total;
+                    const circles = Array.from(data.statuses).map(s => `<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background-color:${statusColors[s] || 'black'}; margin-left:2px;"></span>`).join('');
+                    html += `<td class="${hours === 0 ? 'zero' : ''}">${hours.toFixed(2)}${circles}</td>`;
                 });
                 html += `<td class="${personTotal === 0 ? 'zero' : ''}">${personTotal.toFixed(2)}</td></tr>`;
             }

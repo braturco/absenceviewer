@@ -38,3 +38,8 @@ tr.dept-header {
 .zero {
     color: #ccc;
 }
+
+#legend {
+    margin-bottom: 10px;
+    font-size: 12px;
+}
