@@ -35,7 +35,7 @@ function parseCSV(csv) {
         headers.forEach((h, idx) => {
             let val = values[idx] ? values[idx].trim() : '';
             // Handle dates if they look like dates
-            if (val.match(/^\d{1,2}\/\d{1,2}\/\d{4}$/)) {
+            if (val.match(/^\d{4}\/\d{1,2}\/\d{1,2}$/) || val.match(/^\d{1,2}\/\d{1,2}\/\d{4}$/)) {
                 val = new Date(val);
             }
             row[h] = val;
