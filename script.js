@@ -115,8 +115,8 @@ function processData(data) {
         if (uom === 'D') {
             adjustedAbsenceDur *= normalPerDay;
         }
-        const middleHours = adjustedAbsenceDur - startDurHours - endDurHours;
-        const daily = numMiddleWorking > 0 ? middleHours / numMiddleWorking : 0;
+        // For simplicity, assume daily rate is normalPerDay, and total matches Absence Duration
+        const daily = normalPerDay;
         // assign hours
         days.forEach((day, i) => {
             let hours = 0;
