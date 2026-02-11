@@ -32,6 +32,10 @@ function parseCSV(csv) {
     for (let i = 1; i < lines.length; i++) {
         if (!lines[i].trim()) continue;
         const values = lines[i].split(',');
+        if (values.length !== headers.length) {
+            console.log('Field count mismatch: headers', headers.length, 'values', values.length, 'row:', values);
+            continue; // skip misaligned rows
+        }
         const row = {};
         headers.forEach((h, idx) => {
             let val = values[idx] ? values[idx].trim() : '';
