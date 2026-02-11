@@ -216,21 +216,21 @@ function generateReport() {
     const startWeek = getWeekNumber(startFriday);
     const endWeek = getWeekNumber(endFriday);
     console.log('Week range: ' + startWeek + ' to ' + endWeek);
-    // Collect weeks from data within the date range
+    // Generate all weeks in range
     weeks = [];
-    for (let dept in processedData) {
-        for (let person in processedData[dept]) {
-            for (let w in processedData[dept][person]) {
-                const weekNum = parseInt(w);
-                const weekEndDate = new Date(2026, 0, 9); // Jan 9, 2026 local time
-                weekEndDate.setDate(weekEndDate.getDate() + (weekNum - 1) * 7);
-                if (weekEndDate >= startDate && weekEndDate <= endDate) {
-                    if (!weeks.includes(weekNum)) weeks.push(weekNum);
-                }
-            }
+    if (startWeek <= endWeek) {
+        for (let w = startWeek; w <= endWeek; w++) {
+            weeks.push(w);
+        }
+    } else {
+        for (let w = startWeek; w <= 52; w++) {
+            weeks.push(w);
+        }
+        for (let w = 1; w <= endWeek; w++) {
+            weeks.push(w);
         }
     }
-    weeks.sort((a, b) => a - b);
+    weeks.sort((a, b) => a - b); // Sort ascending to put P12 at the end
     // Group weeks by month
     const monthGroups = {};
     weeks.forEach(w => {
