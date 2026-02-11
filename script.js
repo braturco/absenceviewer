@@ -4,6 +4,8 @@ const controlsDiv = document.getElementById('controls');
 const startDateInput = document.getElementById('startDate');
 const endDateInput = document.getElementById('endDate');
 const generateBtn = document.getElementById('generateBtn');
+const provinceSelect = document.getElementById('provinceSelect');
+const holidaySelect = document.getElementById('holidaySelect');
 
 const statusColors = {
     'Scheduled': 'green',
@@ -16,6 +18,7 @@ const statusColors = {
 
 let processedData = {}; // dept -> person -> week -> {total: hours, statuses: Set}
 let allWeeks = new Set();
+let rawData = []; // store the parsed CSV data
 
 fileInput.addEventListener('change', handleFile);
 generateBtn.addEventListener('click', generateReport);
@@ -26,8 +29,8 @@ function handleFile(e) {
     const reader = new FileReader();
     reader.onload = function(e) {
         const csv = e.target.result;
-        const json = parseCSV(csv);
-        processData(json);
+        rawData = parseCSV(csv);
+        processData(rawData);
         controlsDiv.style.display = 'block';
     };
     reader.readAsText(file);
@@ -84,7 +87,7 @@ function parseCSVLine(line) {
     return result.map(s => s.trim());
 }
 
-function processData(data) {
+function processData(data, includeHolidays = true, provinceFilter = '') {
     // data is array of objects
     // create departments map: dept -> person -> weeks: {week: hours}
     processedData = {};
@@ -95,8 +98,12 @@ function processData(data) {
             console.log('Skipping row due to status:', row['ABSENCE STATUS']);
             return;
         }
-        if (row['ABSENCE TYPE'] === 'Holiday' && parseFloat(row['ABSENCE DURATION']) > 8) {
-            console.log('Skipping row due to Holiday with duration >8:', row['ABSENCE DURATION']);
+        if (!includeHolidays && row['ABSENCE TYPE'] === 'Holiday') {
+            console.log('Skipping row due to Holiday exclusion');
+            return;
+        }
+        if (provinceFilter && row['PROVINCE'] !== provinceFilter) {
+            console.log('Skipping row due to province filter:', row['PROVINCE']);
             return;
         }
         if (!row['DEPARTMENT'] || !row['DEPARTMENT'].includes('WSP-ENV')) {
@@ -189,6 +196,17 @@ function processData(data) {
     console.log('Processed ' + processedCount + ' absences');
     console.log('Departments:', Object.keys(processedData));
     console.log('All weeks:', Array.from(allWeeks).sort());
+    // Populate department select
+    const deptSelect = document.getElementById('departmentSelect');
+    deptSelect.innerHTML = '';
+    const depts = Object.keys(processedData).sort();
+    depts.forEach(dept => {
+        const option = document.createElement('option');
+        option.value = dept;
+        option.textContent = dept;
+        option.selected = true;
+        deptSelect.appendChild(option);
+    });
 }
 
 function generateReport() {
@@ -198,6 +216,9 @@ function generateReport() {
         alert('Please select start and end dates');
         return;
     }
+    const includeHolidays = holidaySelect.value === 'include';
+    const provinceFilter = provinceSelect.value;
+    processData(rawData, includeHolidays, provinceFilter);
     console.log('Selected range: ' + startDateInput.value + ' to ' + endDateInput.value);
     // Find closest Friday on or after startDate
     const startFriday = getClosestFriday(startDate, false); // on or after
@@ -227,8 +248,10 @@ function generateReport() {
     weeks.forEach(w => html += `<th>Week ${w}<br>(${getWeekEndDate(w)})</th>`);
     html += '<th>Total</th></tr></thead><tbody>';
     // Group by department
+    const selectedDepts = Array.from(document.getElementById('departmentSelect').selectedOptions).map(o => o.value);
     const depts = Object.keys(processedData).sort();
     depts.forEach(dept => {
+        if (!selectedDepts.includes(dept)) return;
         const deptId = dept.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '');
         // Department total row
         const deptTotals = {};
