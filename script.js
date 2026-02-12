@@ -222,7 +222,7 @@ function generateReport() {
     for (let i = 0; i < 52; i++) {
         const endDate = new Date(startFriday);
         endDate.setDate(startFriday.getDate() + i * 7);
-        const weekNum = getWeekNumber(endDate);
+        const weekNum = getWeekNumberForHeader(endDate);
         weeks.push({ endDate, weekNum });
     }
     // Group weeks by month
@@ -375,10 +375,20 @@ function getClosestFriday(date, before = false) {
 }
 
 function getWeekNumber(date) {
-    // Weeks end on the date
-    const week1End = new Date(2026, 0, 2); // Jan 2, 2026 local time
+    // For processedData
+    const week1End = new Date(2026, 0, 3); // Jan 3, 2026
     const diffMs = date - week1End;
     const diffWeeks = Math.floor(diffMs / (7 * 24 * 60 * 60 * 1000));
+    let week = 1 + diffWeeks;
+    if (week <= 0) week += 52;
+    return week;
+}
+
+function getWeekNumberForHeader(date) {
+    // For weeks array
+    const week1End = new Date(2026, 0, 2); // Jan 2, 2026
+    const diffMs = date - week1End;
+    const diffWeeks = Math.round(diffMs / (7 * 24 * 60 * 60 * 1000));
     let week = 1 + diffWeeks;
     if (week <= 0) week += 52;
     return week;
