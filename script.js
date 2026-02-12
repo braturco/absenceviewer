@@ -261,9 +261,10 @@ function generateReport() {
     html += '<tr>';
     Object.keys(monthGroups).forEach(m => {
         monthGroups[m].forEach(item => {
+            const suffix = item.endDate.getFullYear() === 2025 ? ' (-1)' : '';
             const mm = (item.endDate.getMonth() + 1).toString().padStart(2, '0');
             const dd = item.endDate.getDate().toString().padStart(2, '0');
-            html += `<th>Week ${item.week}<br>(${mm}/${dd})</th>`;
+            html += `<th>Week ${item.absolute}${suffix}<br>(${mm}/${dd})</th>`;
         });
     });
     html += '</tr></thead><tbody>';
