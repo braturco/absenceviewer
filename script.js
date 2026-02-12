@@ -210,7 +210,7 @@ function generateReport() {
     // Get the closest Friday on or after start date
     const startFriday = getClosestFriday(startDate, false);
     // Generate 52 weeks starting from startFriday
-    const weeks = [];
+    weeks = [];
     for (let i = 0; i < 52; i++) {
         const endDate = new Date(startFriday);
         endDate.setDate(startFriday.getDate() + i * 7);
@@ -421,30 +421,136 @@ function generateLongWeekendReport() {
 }
 
 function exportToExcel() {
-    const table = document.querySelector('#report table');
-    if (!table) return;
+    if (weeks.length === 0) {
+        alert('Please generate a report first.');
+        return;
+    }
+
     const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.table_to_sheet(table);
-    ws['!rows'] = [];
-    let rowIndex = 1; // skip header
-    // Overall total - no level
-    rowIndex++;
+    const ws_data = [];
+    const row_levels = [];
+
+    // 1. HEADER ROWS
+    // Month headers
+    const monthGroups = {};
+    weeks.forEach((item, idx) => {
+        const month = item.endDate.getMonth();
+        const year = item.endDate.getFullYear();
+        let monthName = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][month];
+        if (month === 4 && item.endDate.getDate() === 1) monthName = 'Apr';
+        const m = `${monthName} ${year}`;
+        if (!monthGroups[m]) monthGroups[m] = 0;
+        monthGroups[m]++;
+    });
+
+    const header_row_1 = ['']; // Top-left empty
+    const merges = [];
+    let col_idx = 1;
+    for (const month in monthGroups) {
+        header_row_1.push(month);
+        const span = monthGroups[month];
+        if (span > 1) {
+            merges.push({ s: { r: 0, c: col_idx }, e: { r: 0, c: col_idx + span - 1 } });
+        }
+        for (let i = 1; i < span; i++) {
+            header_row_1.push(''); // Gaps for merged cells
+        }
+        col_idx += span;
+    }
+    header_row_1.push('Total');
+    ws_data.push(header_row_1);
+    row_levels.push(null); // No level for header
+
+    // Week headers
+    const header_row_2 = ['Department / Person'];
+    weeks.forEach(item => {
+        const suffix = item.endDate.getFullYear() === 2025 ? ' (-1)' : '';
+        const mm = (item.endDate.getMonth() + 1).toString().padStart(2, '0');
+        const dd = item.endDate.getDate().toString().padStart(2, '0');
+        header_row_2.push(`Week ${item.weekNum}${suffix}\n(${mm}/${dd})`);
+    });
+    header_row_2.push(''); // Total column has no sub-header
+    ws_data.push(header_row_2);
+    row_levels.push(null); // No level for header
+
+    // 2. DATA ROWS
     const depts = Object.keys(processedData).sort();
     depts.forEach(dept => {
-        // dept header
-        ws['!rows'][rowIndex] = { level: 0 };
-        rowIndex++;
-        // persons
-        const persons = Object.keys(processedData[dept]).filter(person => {
-            let total = 0;
-            weeks.forEach(w => total += (processedData[dept][person][w] || {total:0}).total);
-            return total > 0;
+        // Department total row
+        const dept_row = [dept];
+        let dept_total_hours = 0;
+        weeks.forEach(item => {
+            let week_total = 0;
+            const persons = Object.keys(processedData[dept]);
+            persons.forEach(person => {
+                const data = processedData[dept][person][item.weekNum] || { total: 0 };
+                week_total += data.total;
+            });
+            dept_row.push(week_total);
+            dept_total_hours += week_total;
         });
-        persons.forEach(() => {
-            ws['!rows'][rowIndex] = { level: 1 };
-            rowIndex++;
+        dept_row.push(dept_total_hours);
+        ws_data.push(dept_row);
+        row_levels.push({ level: 0 }); // Department is level 0
+
+        // Person rows
+        const persons = Object.keys(processedData[dept]).sort();
+        persons.forEach(person => {
+            let person_total = 0;
+            weeks.forEach(item => {
+                const data = processedData[dept][person][item.weekNum] || { total: 0 };
+                person_total += data.total;
+            });
+
+            if (person_total > 0) {
+                const person_row = [person];
+                weeks.forEach(item => {
+                    const data = processedData[dept][person][item.weekNum] || { total: 0 };
+                    person_row.push(data.total);
+                });
+                person_row.push(person_total);
+                ws_data.push(person_row);
+                row_levels.push({ level: 1 }); // Person is level 1
+            }
         });
     });
+
+    // 3. OVERALL TOTAL ROW
+    const overall_total_row = ['Overall Total'];
+    let overall_grand_total = 0;
+    weeks.forEach(item => {
+        let week_grand_total = 0;
+        depts.forEach(dept => {
+            const persons = Object.keys(processedData[dept]);
+            persons.forEach(person => {
+                const data = processedData[dept][person][item.weekNum] || { total: 0 };
+                week_grand_total += data.total;
+            });
+        });
+        overall_total_row.push(week_grand_total);
+        overall_grand_total += week_grand_total;
+    });
+    overall_total_row.push(overall_grand_total);
+    ws_data.push(overall_total_row);
+    row_levels.push(null); // No level for total
+
+    // 4. CREATE SHEET AND ADD TO BOOK
+    const ws = XLSX.utils.aoa_to_sheet(ws_data);
+    
+    // Apply merges
+    if (!ws['!merges']) ws['!merges'] = [];
+    ws['!merges'].push(...merges);
+
+    // Apply outline levels
+    ws['!rows'] = row_levels;
+
+    // Auto-fit columns
+    const cols = Object.keys(header_row_1).length;
+    ws['!cols'] = [{ wch: 30 }]; // First column wider
+    for(let i=1; i<cols; i++) {
+        ws['!cols'].push({ wch: 15 });
+    }
+
     XLSX.utils.book_append_sheet(wb, ws, 'Absence Report');
     XLSX.writeFile(wb, 'absence_report.xlsx');
 }
