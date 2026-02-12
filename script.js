@@ -396,12 +396,23 @@ function generateLongWeekendReport() {
     
     // Filter rawData to only include absences that overlap with these dates
     const filteredData = rawData.filter(row => {
-        const startDate = new Date(row['START DATE']);
-        const endDate = new Date(row['END DATE']);
+        const startDate = new Date(row['ABSENCE START DATE']);
+        const endDate = new Date(row['ABSENCE END DATE']);
+        
+        console.log('Checking row:', row['EMPLOYEE NAME'], 'start:', startDate, 'end:', endDate);
         
         // Check if any of the long weekend dates fall within the absence period
-        return longWeekendDates.some(date => date >= startDate && date <= endDate);
+        const overlaps = longWeekendDates.some(date => {
+            const result = date >= startDate && date <= endDate;
+            console.log('  Checking date:', date, 'result:', result);
+            return result;
+        });
+        
+        console.log('  Overlaps:', overlaps);
+        return overlaps;
     });
+    
+    console.log('Filtered data length:', filteredData.length);
     
     if (filteredData.length === 0) {
         reportDiv.innerHTML = '<p>No absences found for the long weekend dates.</p>';
