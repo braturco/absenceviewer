@@ -231,7 +231,9 @@ function generateReport() {
     weeks.forEach((item, idx) => {
         const month = item.endDate.getMonth();
         const year = item.endDate.getFullYear();
-        const m = `${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][month]} ${year}`;
+        let monthName = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][month];
+        if (month === 4 && item.endDate.getDate() === 1) monthName = 'Apr';
+        const m = `${monthName} ${year}`;
         if (!monthGroups[m]) monthGroups[m] = [];
         monthGroups[m].push({ week: item.weekNum, endDate: item.endDate, idx });
     });
