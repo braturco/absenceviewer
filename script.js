@@ -189,19 +189,64 @@ function processData(data) {
             endDurHours = adjustedAbsenceDur - totalSoFar;
         }
         // assign hours
-        days.forEach((day, i) => {
-            let hours = 0;
-            if (i === 0) hours = startDurHours;
-            else if (i === totalDays - 1) hours = endDurHours;
-            else if (middleWorkingDays.some(md => md.getTime() === day.getTime())) hours = daily;
+        const firstDay = days[0];
+        const lastDay = days[totalDays - 1];
+        const middleDays = days.slice(1, -1);
+        const middleWorkingDays = middleDays.filter(d => {
+            const dow = d.getDay();
+            return dow >= 1 && dow <= 5;
+        });
+        const numMiddleWorking = middleWorkingDays.length;
+
+        // Hours for first day
+        let hoursFirst = startDurHours;
+        // Hours for last day
+        let hoursLast = endDur === 0 ? 0 : endDurHours;
+        // Total hours to distribute to middle
+        let totalMiddleHours = adjustedAbsenceDur - hoursFirst - hoursLast;
+        let hoursPerMiddleDay = 0;
+        if (numMiddleWorking > 0) {
+            hoursPerMiddleDay = totalMiddleHours / numMiddleWorking;
+        } else {
+            // If no middle days, adjust last day
+            if (endDur === 0) {
+                hoursLast = adjustedAbsenceDur - hoursFirst;
+            }
+        }
+
+        // Assign to first day
+        const weekFirst = getWeekNumber(firstDay);
+        allWeeks.add(weekFirst);
+        if (!processedData[dept][name][weekFirst]) processedData[dept][name][weekFirst] = { total: 0, statuses: new Set(), dates: {} };
+        processedData[dept][name][weekFirst].total += hoursFirst;
+        processedData[dept][name][weekFirst].statuses.add(row['ABSENCE STATUS']);
+        const dateKeyFirst = firstDay.toISOString().split('T')[0];
+        processedData[dept][name][weekFirst].dates[dateKeyFirst] = (processedData[dept][name][weekFirst].dates[dateKeyFirst] || 0) + hoursFirst;
+
+        // Assign to middle days
+        middleWorkingDays.forEach(day => {
             const week = getWeekNumber(day);
             allWeeks.add(week);
             if (!processedData[dept][name][week]) processedData[dept][name][week] = { total: 0, statuses: new Set(), dates: {} };
-            processedData[dept][name][week].total += hours;
+            processedData[dept][name][week].total += hoursPerMiddleDay;
             processedData[dept][name][week].statuses.add(row['ABSENCE STATUS']);
             const dateKey = day.toISOString().split('T')[0];
-            processedData[dept][name][week].dates[dateKey] = (processedData[dept][name][week].dates[dateKey] || 0) + hours;
+            processedData[dept][name][week].dates[dateKey] = (processedData[dept][name][week].dates[dateKey] || 0) + hoursPerMiddleDay;
         });
+
+        // Assign to last day
+        if (totalDays > 1) {
+            if (endDur === 0) {
+                hoursLast = adjustedAbsenceDur - hoursFirst - numMiddleWorking * hoursPerMiddleDay;
+            }
+            const weekLast = getWeekNumber(lastDay);
+            allWeeks.add(weekLast);
+            if (!processedData[dept][name][weekLast]) processedData[dept][name][weekLast] = { total: 0, statuses: new Set(), dates: {} };
+            processedData[dept][name][weekLast].total += hoursLast;
+            processedData[dept][name][weekLast].statuses.add(row['ABSENCE STATUS']);
+            const dateKeyLast = lastDay.toISOString().split('T')[0];
+            processedData[dept][name][weekLast].dates[dateKeyLast] = (processedData[dept][name][weekLast].dates[dateKeyLast] || 0) + hoursLast;
+        }
         processedCount++;
     });
     console.log('Processed ' + processedCount + ' absences');
