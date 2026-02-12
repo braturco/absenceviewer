@@ -316,7 +316,9 @@ function generateReport() {
         monthGroups[m].forEach(item => {
             console.log('item.relative:', item.relative, 'item.week:', item.week);
             const suffix = item.endDate.getFullYear() === 2025 ? ' (-1)' : '';
-            html += `<th>Week ${item.absolute}${suffix}<br>(${getWeekEndDate(item.absolute)})</th>`;
+            const mm = (item.endDate.getMonth() + 1).toString().padStart(2, '0');
+            const dd = item.endDate.getDate().toString().padStart(2, '0');
+            html += `<th>Week ${item.absolute}${suffix}<br>(${mm}/${dd})</th>`;
         });
     });
     html += '</tr></thead><tbody>';
@@ -516,7 +518,11 @@ function getClosestFriday(date, before = false) {
         if (daysToAdd === 0 && day !== 5) daysToAdd = -7; // if not Friday, go back
     } else {
         // on or after
-        daysToAdd = (5 - day + 7) % 7;
+        if (day === 5) {
+            daysToAdd = 6; // next Friday
+        } else {
+            daysToAdd = (5 - day + 7) % 7;
+        }
     }
     d.setDate(d.getDate() + daysToAdd);
     return d;
