@@ -446,11 +446,12 @@ function exportToExcel() {
 }
 
 function getWeekNumber(date) {
-    // Weeks end on the date
-    const week1End = new Date(2026, 0, 3); // Jan 3, 2026 local time
+    // Weeks end on Friday. The first week of 2026 ends on Friday, Jan 2.
+    const week1End = new Date(2026, 0, 2);
     const friday = getClosestFriday(date, true);
     const diffMs = friday - week1End;
-    const diffWeeks = Math.ceil(diffMs / (7 * 24 * 60 * 60 * 1000));
+    // Use Math.round for more robust week calculation against timezone/DST shifts.
+    const diffWeeks = Math.round(diffMs / (7 * 24 * 60 * 60 * 1000));
     let week = 1 + diffWeeks;
     if (week <= 0) week += 52;
     return week;
