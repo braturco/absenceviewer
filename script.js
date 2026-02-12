@@ -380,8 +380,47 @@ function generateReport() {
     });
     html += `<td class="${overallTotal === 0 ? 'zero' : ''}"><strong>${overallTotal.toFixed(2)}</strong></td></tr>`;
     html += '</tbody></table>';
+    html += '<br><button id="longWeekendBtn">Show Long Weekend Impact (Feb 13,15-17)</button>';
     reportDiv.innerHTML = html;
     exportBtn.style.display = 'inline-block';
+    document.getElementById('longWeekendBtn').addEventListener('click', generateLongWeekendReport);
+}
+
+function generateLongWeekendReport() {
+    const longWeekendDates = [
+        new Date(2026, 1, 13), // Feb 13
+        new Date(2026, 1, 15), // Feb 15
+        new Date(2026, 1, 16), // Feb 16
+        new Date(2026, 1, 17)  // Feb 17
+    ];
+    
+    // Filter rawData to only include absences that overlap with these dates
+    const filteredData = rawData.filter(row => {
+        const startDate = new Date(row['START DATE']);
+        const endDate = new Date(row['END DATE']);
+        
+        // Check if any of the long weekend dates fall within the absence period
+        return longWeekendDates.some(date => date >= startDate && date <= endDate);
+    });
+    
+    if (filteredData.length === 0) {
+        reportDiv.innerHTML = '<p>No absences found for the long weekend dates.</p>';
+        return;
+    }
+    
+    // Process the filtered data
+    processData(filteredData);
+    
+    // Generate report with a fixed start date for the long weekend
+    const startDate = new Date(2026, 1, 10); // Feb 10, 2026 - a Monday before the dates
+    startDateInput.value = startDate.toISOString().split('T')[0];
+    
+    generateReport();
+    
+    // Update the title or add a note
+    const titleDiv = document.createElement('div');
+    titleDiv.innerHTML = '<h2>Long Weekend Impact Report (Feb 13, 15-17, 2026)</h2>';
+    reportDiv.insertBefore(titleDiv, reportDiv.firstChild);
 }
 
 function exportToExcel() {
