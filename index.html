@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Absence Viewer</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+    <h1>Company Absence Viewer</h1>
+    <p>Upload your .csv file containing absence data:</p>
+    <input type="file" id="fileInput" accept=".csv">
+    <div id="controls" style="display:none;">
+        <label>Start Date: <input type="date" id="startDate"></label>
+        <label>End Date: <input type="date" id="endDate"></label>
+        <button id="generateBtn">Generate Report</button>
+        <button id="exportBtn" style="display:none;">Export to Excel</button>
+    </div>
+    <div id="report"></div>
+    <script src="script.js"></script>
+</body>
+</html>
