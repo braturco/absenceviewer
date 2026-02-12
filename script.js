@@ -21,7 +21,7 @@ let rawData = []; // store the parsed CSV data
 let weeks = []; // for export
 
 function getWeekMonth(w) {
-    const week1End = new Date(2026, 0, 9); // Jan 9, 2026 local time
+    const week1End = new Date(2026, 0, 2); // Jan 2, 2026 local time
     const endDate = new Date(week1End);
     endDate.setDate(week1End.getDate() + (w - 1) * 7);
     const month = endDate.getMonth(); // 0-11
@@ -204,27 +204,31 @@ function processData(data) {
 
 function generateReport() {
     const startDate = new Date(startDateInput.value);
-    const endDate = new Date(endDateInput.value);
-    if (!startDate || !endDate) {
-        alert('Please select start and end dates');
+    if (!startDate) {
+        alert('Please select start date');
         return;
     }
     processData(rawData);
-    console.log('Selected range: ' + startDateInput.value + ' to ' + endDateInput.value);
-    // Generate all weeks 1 to 52
-    weeks = [];
-    for (let w = 1; w <= 52; w++) {
-        weeks.push(w);
+    console.log('Selected start: ' + startDateInput.value);
+    // Generate 52 weeks starting from the week of the closest Friday after start date
+    const closestFriday = getClosestFriday(startDate, false);
+    const startingWeek = getWeekNumber(closestFriday);
+    const actualWeeks = [];
+    for (let i = 0; i < 52; i++) {
+        let w = startingWeek + i;
+        if (w > 52) w -= 52;
+        actualWeeks.push(w);
     }
-    weeks.sort((a, b) => b - a); // Sort descending to put P12 at the start
+    weeks = actualWeeks;
     // Group weeks by month
     const monthGroups = {};
-    weeks.forEach(w => {
+    weeks.forEach((w, idx) => {
         const m = getWeekMonth(w);
+        const label = idx + 1;
         if (!monthGroups[m]) monthGroups[m] = [];
-        monthGroups[m].push(w);
+        monthGroups[m].push({week: w, label: label});
     });
-    console.log('Filtered weeks:', weeks);
+    console.log('Actual weeks:', weeks);
     console.log('Month groups:', monthGroups);
     if (weeks.length === 0) {
         reportDiv.innerHTML = '<p>No data for the selected date range.</p>';
@@ -245,8 +249,8 @@ function generateReport() {
     html += '<th rowspan="2">Total</th></tr>';
     html += '<tr>';
     Object.keys(monthGroups).forEach(m => {
-        monthGroups[m].forEach(w => {
-            html += `<th>Week ${w}<br>(${getWeekEndDate(w)})</th>`;
+        monthGroups[m].forEach(item => {
+            html += `<th>Week ${item.label}<br>(${getWeekEndDate(item.week)})</th>`;
         });
     });
     html += '</tr></thead><tbody>';
@@ -360,8 +364,8 @@ function getClosestFriday(date, before = false) {
 
 function getWeekNumber(date) {
     // Weeks end on Friday
-    // Week 1 ends on Jan 9, 2026
-    const week1End = new Date(2026, 0, 9); // Jan 9, 2026 local time
+    // Week 1 ends on Jan 2, 2026
+    const week1End = new Date(2026, 0, 2); // Jan 2, 2026 local time
     // Get the Friday of the week for this date
     const d = new Date(date);
     const day = d.getDay(); // 0=Sun, 1=Mon, ..., 5=Fri, 6=Sat
@@ -392,7 +396,7 @@ function toggleDept(deptId) {
 }
 
 function getWeekEndDate(weekNum) {
-    const week1End = new Date(2026, 0, 9); // Jan 9, 2026 local time
+    const week1End = new Date(2026, 0, 2); // Jan 2, 2026 local time
     const endDate = new Date(week1End);
     endDate.setDate(week1End.getDate() + (weekNum - 1) * 7);
     const mm = (endDate.getMonth() + 1).toString().padStart(2, '0');
