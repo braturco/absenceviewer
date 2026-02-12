@@ -228,7 +228,9 @@ function generateReport() {
     // Group weeks by month
     const monthGroups = {};
     weeks.forEach((item, idx) => {
-        const m = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][item.endDate.getMonth()];
+        const month = item.endDate.getMonth();
+        const year = item.endDate.getFullYear();
+        const m = `${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][month]} ${year}`;
         if (!monthGroups[m]) monthGroups[m] = [];
         monthGroups[m].push({ week: item.weekNum, endDate: item.endDate, idx });
     });
@@ -258,10 +260,9 @@ function generateReport() {
     html += '<tr>';
     Object.keys(monthGroups).forEach(m => {
         monthGroups[m].forEach(item => {
-            const suffix = item.endDate.getFullYear() === 2025 ? ' (-1)' : '';
             const mm = (item.endDate.getMonth() + 1).toString().padStart(2, '0');
             const dd = item.endDate.getDate().toString().padStart(2, '0');
-            html += `<th>Week ${item.week}${suffix}<br>(${mm}/${dd})</th>`;
+            html += `<th>Week ${item.week}<br>(${mm}/${dd})</th>`;
         });
     });
     html += '</tr></thead><tbody>';
