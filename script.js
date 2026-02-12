@@ -378,7 +378,7 @@ function getClosestFriday(date, before = false) {
 function getWeekNumber(date) {
     // Weeks end on the date
     const week1End = new Date(2026, 0, 2); // Jan 2, 2026 local time
-    const friday = getClosestFriday(date, false);
+    const friday = getClosestFriday(date, true);
     const diffMs = friday - week1End;
     const diffWeeks = Math.ceil(diffMs / (7 * 24 * 60 * 60 * 1000));
     let week = 1 + diffWeeks;
