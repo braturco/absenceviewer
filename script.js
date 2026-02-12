@@ -196,9 +196,11 @@ function processData(data) {
             else if (middleWorkingDays.some(md => md.getTime() === day.getTime())) hours = daily;
             const week = getWeekNumber(day);
             allWeeks.add(week);
-            if (!processedData[dept][name][week]) processedData[dept][name][week] = { total: 0, statuses: new Set() };
+            if (!processedData[dept][name][week]) processedData[dept][name][week] = { total: 0, statuses: new Set(), dates: {} };
             processedData[dept][name][week].total += hours;
             processedData[dept][name][week].statuses.add(row['ABSENCE STATUS']);
+            const dateKey = day.toISOString().split('T')[0];
+            processedData[dept][name][week].dates[dateKey] = (processedData[dept][name][week].dates[dateKey] || 0) + hours;
         });
         processedCount++;
     });
@@ -272,50 +274,58 @@ function generateReport() {
     html += '</tr></thead><tbody>';
     // Group by department
     const overallTotals = {};
-    weeks.forEach(item => overallTotals[item.weekNum] = { total: 0, statuses: new Set() });
+    weeks.forEach(item => overallTotals[item.weekNum] = { total: 0, statuses: new Set(), dates: {} });
     let overallTotal = 0;
     const depts = Object.keys(processedData).sort();
     depts.forEach(dept => {
         const deptId = dept.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '');
         // Department total row
         const deptTotals = {};
-        weeks.forEach(item => deptTotals[item.weekNum] = { total: 0, statuses: new Set() });
+        weeks.forEach(item => deptTotals[item.weekNum] = { total: 0, statuses: new Set(), dates: {} });
         let deptTotal = 0;
         const persons = Object.keys(processedData[dept]).sort();
         persons.forEach(person => {
             weeks.forEach(item => {
-                const data = processedData[dept][person][item.weekNum] || { total: 0, statuses: new Set() };
+                const data = processedData[dept][person][item.weekNum] || { total: 0, statuses: new Set(), dates: {} };
                 deptTotals[item.weekNum].total += data.total;
                 deptTotals[item.weekNum].statuses = new Set([...deptTotals[item.weekNum].statuses, ...data.statuses]);
+                for (const [date, hrs] of Object.entries(data.dates)) {
+                    deptTotals[item.weekNum].dates[date] = (deptTotals[item.weekNum].dates[date] || 0) + hrs;
+                }
                 deptTotal += data.total;
             });
         });
         weeks.forEach(item => {
             overallTotals[item.weekNum].total += deptTotals[item.weekNum].total;
             overallTotals[item.weekNum].statuses = new Set([...overallTotals[item.weekNum].statuses, ...deptTotals[item.weekNum].statuses]);
+            for (const [date, hrs] of Object.entries(deptTotals[item.weekNum].dates)) {
+                overallTotals[item.weekNum].dates[date] = (overallTotals[item.weekNum].dates[date] || 0) + hrs;
+            }
             overallTotal += deptTotals[item.weekNum].total;
         });
         html += `<tr class="dept-header" onclick="toggleDept('${deptId}')"><td><strong>${dept}</strong> <span id="arrow-${deptId}">▼</span></td>`;
         weeks.forEach(item => {
             const total = deptTotals[item.weekNum].total;
             const circles = Array.from(deptTotals[item.weekNum].statuses).map(s => `<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background-color:${statusColors[s] || 'black'}; margin-left:2px;"></span>`).join('');
-            html += `<td class="${total === 0 ? 'zero' : ''}"><strong>${total.toFixed(2)}${circles}</strong></td>`;
+            const tooltip = Object.entries(deptTotals[item.weekNum].dates).map(([date, hrs]) => `${date}: ${hrs}h`).join('\n');
+            html += `<td class="${total === 0 ? 'zero' : ''}" title="${tooltip}"><strong>${total.toFixed(2)}${circles}</strong></td>`;
         });
         html += `<td class="${deptTotal === 0 ? 'zero' : ''}"><strong>${deptTotal.toFixed(2)}</strong></td></tr>`;
         // Individual persons
         persons.forEach(person => {
             let personTotal = 0;
             weeks.forEach(item => {
-                const data = processedData[dept][person][item.weekNum] || { total: 0, statuses: new Set() };
+                const data = processedData[dept][person][item.weekNum] || { total: 0, statuses: new Set(), dates: {} };
                 personTotal += data.total;
             });
             if (personTotal > 0) {
                 html += `<tr class="person-row ${deptId}" style="display: table-row;"><td>${person}</td>`;
                 weeks.forEach(item => {
-                    const data = processedData[dept][person][item.weekNum] || { total: 0, statuses: new Set() };
+                    const data = processedData[dept][person][item.weekNum] || { total: 0, statuses: new Set(), dates: {} };
                     const hours = data.total;
                     const circles = Array.from(data.statuses).map(s => `<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background-color:${statusColors[s] || 'black'}; margin-left:2px;"></span>`).join('');
-                    html += `<td class="${hours === 0 ? 'zero' : ''}">${hours.toFixed(2)}${circles}</td>`;
+                    const tooltip = Object.entries(data.dates).map(([date, hrs]) => `${date}: ${hrs}h`).join('\n');
+                    html += `<td class="${hours === 0 ? 'zero' : ''}" title="${tooltip}">${hours.toFixed(2)}${circles}</td>`;
                 });
                 html += `<td class="${personTotal === 0 ? 'zero' : ''}">${personTotal.toFixed(2)}</td></tr>`;
             }
@@ -325,7 +335,8 @@ function generateReport() {
     weeks.forEach(item => {
         const total = overallTotals[item.weekNum].total;
         const circles = Array.from(overallTotals[item.weekNum].statuses).map(s => `<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background-color:${statusColors[s] || 'black'}; margin-left:2px;"></span>`).join('');
-        html += `<td class="${total === 0 ? 'zero' : ''}"><strong>${total.toFixed(2)}${circles}</strong></td>`;
+        const tooltip = Object.entries(overallTotals[item.weekNum].dates).map(([date, hrs]) => `${date}: ${hrs}h`).join('\n');
+        html += `<td class="${total === 0 ? 'zero' : ''}" title="${tooltip}"><strong>${total.toFixed(2)}${circles}</strong></td>`;
     });
     html += `<td class="${overallTotal === 0 ? 'zero' : ''}"><strong>${overallTotal.toFixed(2)}</strong></td></tr>`;
     html += '</tbody></table>';
