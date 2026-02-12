@@ -30,11 +30,7 @@ function getClosestFriday(date, before = false) {
         if (daysToAdd === 0 && day !== 5) daysToAdd = -7; // if not Friday, go back
     } else {
         // on or after
-        if (day === 5) {
-            daysToAdd = 6; // next Friday
-        } else {
-            daysToAdd = (5 - day + 7) % 7;
-        }
+        daysToAdd = (5 - day + 7) % 7;
     }
     d.setDate(d.getDate() + daysToAdd);
     return d;
@@ -264,8 +260,8 @@ function processData(data) {
 
 function generateReport() {
     const startDate = new Date(startDateInput.value);
-    if (isNaN(startDate)) {
-        alert('Invalid start date format. Please use YYYY-MM-DD.');
+    if (!startDate) {
+        alert('Please select start date');
         return;
     }
     processData(rawData);
@@ -322,7 +318,7 @@ function generateReport() {
             const suffix = item.endDate.getFullYear() === 2025 ? ' (-1)' : '';
             const mm = (item.endDate.getMonth() + 1).toString().padStart(2, '0');
             const dd = item.endDate.getDate().toString().padStart(2, '0');
-            html += `<th>${mm}/${dd}</th>`;
+            html += `<th>Week ${item.absolute}${suffix}<br>(${mm}/${dd})</th>`;
         });
     });
     html += '</tr></thead><tbody>';
@@ -512,31 +508,10 @@ function exportToExcel() {
     XLSX.writeFile(wb, 'absence_report.xlsx');
 }
 
-function getClosestFriday(date, before = false) {
-    const d = new Date(date);
-    const day = d.getDay(); // 0=Sun, 1=Mon, ..., 5=Fri, 6=Sat
-    let daysToAdd;
-    if (before) {
-        // closest Friday on or before
-        daysToAdd = (5 - day) % 7;
-        if (daysToAdd === 0 && day !== 5) daysToAdd = -7; // if not Friday, go back
-    } else {
-        // closest Friday
-        if (day === 5) {
-            daysToAdd = 0;
-        } else {
-            daysToAdd = 5 - day;
-            if (daysToAdd > 0) daysToAdd -= 7;
-        }
-    }
-    d.setDate(d.getDate() + daysToAdd);
-    return d;
-}
-
 function getWeekNumber(date) {
     // Weeks end on the date
-    const week1End = new Date(2026, 0, 2); // Jan 2, 2026 local time
-    const friday = getClosestFriday(date, false);
+    const week1End = new Date(2026, 0, 3); // Jan 3, 2026 local time
+    const friday = getClosestFriday(date, true);
     const diffMs = friday - week1End;
     const diffWeeks = Math.ceil(diffMs / (7 * 24 * 60 * 60 * 1000));
     let week = 1 + diffWeeks;
@@ -560,7 +535,7 @@ function toggleDept(deptId) {
 }
 
 function getWeekEndDate(weekNum) {
-    const week1End = new Date(2026, 0, 2); // Jan 2, 2026 local time
+    const week1End = new Date(2026, 0, 3); // Jan 3, 2026 local time
     const endDate = new Date(week1End);
     endDate.setDate(week1End.getDate() + (weekNum - 1) * 7 - (weekNum > 26 ? 364 : 0));
     const mm = (endDate.getMonth() + 1).toString().padStart(2, '0');
