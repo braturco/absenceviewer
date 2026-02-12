@@ -227,6 +227,10 @@ function generateReport() {
         if (!monthGroups[m]) monthGroups[m] = [];
         monthGroups[m].push({week: w});
     });
+    // Sort weeks within each month ascending
+    Object.keys(monthGroups).forEach(m => {
+        monthGroups[m].sort((a, b) => a.week - b.week);
+    });
     console.log('Actual weeks:', weeks);
     console.log('Month groups:', monthGroups);
     if (weeks.length === 0) {
@@ -249,7 +253,9 @@ function generateReport() {
     html += '<tr>';
     Object.keys(monthGroups).forEach(m => {
         monthGroups[m].forEach(item => {
-            const suffix = item.week < startingWeek ? ' (-1)' : '';
+            const endDate = new Date(2026, 0, 2);
+            endDate.setDate(endDate.getDate() + (item.week - 1) * 7);
+            const suffix = endDate.getFullYear() === 2025 ? ' (-1)' : '';
             html += `<th>Week ${item.week}${suffix}<br>(${getWeekEndDate(item.week)})</th>`;
         });
     });
