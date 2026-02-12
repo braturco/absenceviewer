@@ -191,12 +191,6 @@ function processData(data) {
         // assign hours
         const firstDay = days[0];
         const lastDay = days[totalDays - 1];
-        const middleDays = days.slice(1, -1);
-        const middleWorkingDays = middleDays.filter(d => {
-            const dow = d.getDay();
-            return dow >= 1 && dow <= 5;
-        });
-        const numMiddleWorking = middleWorkingDays.length;
 
         // Hours for first day
         let hoursFirst = startDurHours;
