@@ -23,7 +23,7 @@ let weeks = []; // for export
 function getWeekMonth(w) {
     const week1End = new Date(2026, 0, 2); // Jan 2, 2026 local time
     const endDate = new Date(week1End);
-    endDate.setDate(week1End.getDate() + (w - 1) * 7);
+    endDate.setDate(week1End.getDate() + (w - 1) * 7 - (w > 26 ? 364 : 0));
     const month = endDate.getMonth(); // 0-11
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     // Special case for April ending May 1
@@ -210,9 +210,8 @@ function generateReport() {
     }
     processData(rawData);
     console.log('Selected start: ' + startDateInput.value);
-    // Generate 52 weeks starting from the week of the closest Friday after start date
-    const closestFriday = getClosestFriday(startDate, false);
-    const startingWeek = getWeekNumber(closestFriday);
+    // Generate 52 weeks starting from the week of the start date
+    const startingWeek = getWeekNumber(startDate);
     const actualWeeks = [];
     for (let i = 0; i < 52; i++) {
         let w = startingWeek + i;
@@ -254,7 +253,7 @@ function generateReport() {
     Object.keys(monthGroups).forEach(m => {
         monthGroups[m].forEach(item => {
             const endDate = new Date(2026, 0, 2);
-            endDate.setDate(endDate.getDate() + (item.week - 1) * 7);
+            endDate.setDate(endDate.getDate() + (item.week - 1) * 7 - (item.week > 26 ? 364 : 0));
             const suffix = endDate.getFullYear() === 2025 ? ' (-1)' : '';
             html += `<th>Week ${item.week}${suffix}<br>(${getWeekEndDate(item.week)})</th>`;
         });
@@ -369,17 +368,9 @@ function getClosestFriday(date, before = false) {
 }
 
 function getWeekNumber(date) {
-    // Weeks end on Friday
-    // Week 1 ends on Jan 2, 2026
+    // Weeks end on the date
     const week1End = new Date(2026, 0, 2); // Jan 2, 2026 local time
-    // Get the Friday of the week for this date
-    const d = new Date(date);
-    const day = d.getDay(); // 0=Sun, 1=Mon, ..., 5=Fri, 6=Sat
-    const daysToFriday = (5 - day + 7) % 7;
-    const friday = new Date(d);
-    friday.setDate(d.getDate() + daysToFriday);
-    // Calculate weeks from week1End
-    const diffMs = friday - week1End;
+    const diffMs = date - week1End;
     const diffWeeks = Math.floor(diffMs / (7 * 24 * 60 * 60 * 1000));
     let week = 1 + diffWeeks;
     if (week <= 0) week += 52;
@@ -404,7 +395,7 @@ function toggleDept(deptId) {
 function getWeekEndDate(weekNum) {
     const week1End = new Date(2026, 0, 2); // Jan 2, 2026 local time
     const endDate = new Date(week1End);
-    endDate.setDate(week1End.getDate() + (weekNum - 1) * 7);
+    endDate.setDate(week1End.getDate() + (weekNum - 1) * 7 - (weekNum > 26 ? 364 : 0));
     const mm = (endDate.getMonth() + 1).toString().padStart(2, '0');
     const dd = endDate.getDate().toString().padStart(2, '0');
     const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
