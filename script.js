@@ -212,19 +212,15 @@ function generateReport() {
     console.log('Selected start: ' + startDateInput.value);
     // Generate 52 weeks starting from the week of the start date
     const startingWeek = getWeekNumber(startDate);
-    const actualWeeks = [];
-    for (let i = 0; i < 52; i++) {
-        let w = startingWeek + i;
-        if (w > 52) w -= 52;
-        actualWeeks.push(w);
-    }
+    const actualWeeks = Array.from({length: 52}, (_, i) => i + 1); // 1 to 52
     weeks = actualWeeks;
     // Group weeks by month
     const monthGroups = {};
     weeks.forEach((w, idx) => {
-        const m = getWeekMonth(w);
+        const absolute = ((startingWeek - 1 + w - 1) % 52) + 1;
+        const m = getWeekMonth(absolute);
         if (!monthGroups[m]) monthGroups[m] = [];
-        monthGroups[m].push({week: w});
+        monthGroups[m].push({week: w, absolute: absolute});
     });
     // Sort weeks within each month ascending
     Object.keys(monthGroups).forEach(m => {
@@ -253,9 +249,9 @@ function generateReport() {
     Object.keys(monthGroups).forEach(m => {
         monthGroups[m].forEach(item => {
             const endDate = new Date(2026, 0, 2);
-            endDate.setDate(endDate.getDate() + (item.week - 1) * 7 - (item.week > 26 ? 364 : 0));
+            endDate.setDate(endDate.getDate() + (item.absolute - 1) * 7 - (item.absolute > 26 ? 364 : 0));
             const suffix = endDate.getFullYear() === 2025 ? ' (-1)' : '';
-            html += `<th>Week ${item.week}${suffix}<br>(${getWeekEndDate(item.week)})</th>`;
+            html += `<th>Week ${item.week}${suffix}<br>(${getWeekEndDate(item.absolute)})</th>`;
         });
     });
     html += '</tr></thead><tbody>';
@@ -273,7 +269,8 @@ function generateReport() {
         const persons = Object.keys(processedData[dept]).sort();
         persons.forEach(person => {
             weeks.forEach(w => {
-                const data = processedData[dept][person][w] || { total: 0, statuses: new Set() };
+                const absolute = ((startingWeek - 1 + w - 1) % 52) + 1;
+                const data = processedData[dept][person][absolute] || { total: 0, statuses: new Set() };
                 deptTotals[w].total += data.total;
                 deptTotals[w].statuses = new Set([...deptTotals[w].statuses, ...data.statuses]);
                 deptTotal += data.total;
@@ -295,13 +292,15 @@ function generateReport() {
         persons.forEach(person => {
             let personTotal = 0;
             weeks.forEach(w => {
-                const data = processedData[dept][person][w] || { total: 0, statuses: new Set() };
+                const absolute = ((startingWeek - 1 + w - 1) % 52) + 1;
+                const data = processedData[dept][person][absolute] || { total: 0, statuses: new Set() };
                 personTotal += data.total;
             });
             if (personTotal > 0) {
                 html += `<tr class="person-row ${deptId}" style="display: table-row;"><td>${person}</td>`;
                 weeks.forEach(w => {
-                    const data = processedData[dept][person][w] || { total: 0, statuses: new Set() };
+                    const absolute = ((startingWeek - 1 + w - 1) % 52) + 1;
+                    const data = processedData[dept][person][absolute] || { total: 0, statuses: new Set() };
                     const hours = data.total;
                     const circles = Array.from(data.statuses).map(s => `<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background-color:${statusColors[s] || 'black'}; margin-left:2px;"></span>`).join('');
                     html += `<td class="${hours === 0 ? 'zero' : ''}">${hours.toFixed(2)}${circles}</td>`;
