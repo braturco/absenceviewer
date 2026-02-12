@@ -224,9 +224,8 @@ function generateReport() {
     const monthGroups = {};
     weeks.forEach((w, idx) => {
         const m = getWeekMonth(w);
-        const label = idx + 1;
         if (!monthGroups[m]) monthGroups[m] = [];
-        monthGroups[m].push({week: w, label: label});
+        monthGroups[m].push({week: w});
     });
     console.log('Actual weeks:', weeks);
     console.log('Month groups:', monthGroups);
@@ -250,7 +249,8 @@ function generateReport() {
     html += '<tr>';
     Object.keys(monthGroups).forEach(m => {
         monthGroups[m].forEach(item => {
-            html += `<th>Week ${item.label}<br>(${getWeekEndDate(item.week)})</th>`;
+            const suffix = item.week < startingWeek ? ' (-1)' : '';
+            html += `<th>Week ${item.week}${suffix}<br>(${getWeekEndDate(item.week)})</th>`;
         });
     });
     html += '</tr></thead><tbody>';
