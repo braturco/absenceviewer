@@ -526,7 +526,7 @@ function getClosestFriday(date, before = false) {
 
 function getWeekNumber(date) {
     // Weeks end on the date
-    const week1End = new Date(2026, 0, 3); // Jan 3, 2026 local time
+    const week1End = new Date(2026, 0, 2); // Jan 2, 2026 local time
     const friday = getClosestFriday(date, false);
     const diffMs = friday - week1End;
     const diffWeeks = Math.ceil(diffMs / (7 * 24 * 60 * 60 * 1000));
@@ -551,7 +551,7 @@ function toggleDept(deptId) {
 }
 
 function getWeekEndDate(weekNum) {
-    const week1End = new Date(2026, 0, 3); // Jan 3, 2026 local time
+    const week1End = new Date(2026, 0, 2); // Jan 2, 2026 local time
     const endDate = new Date(week1End);
     endDate.setDate(week1End.getDate() + (weekNum - 1) * 7 - (weekNum > 26 ? 364 : 0));
     const mm = (endDate.getMonth() + 1).toString().padStart(2, '0');
