@@ -265,8 +265,8 @@ function processData(data) {
 function generateReport() {
     const startDate = new Date(startDateInput.value);
     if (isNaN(startDate)) {
-        alert('Invalid start date format. Please use YYYY-MM-DD. Using Jan 2, 2026 as default.');
-        startDate = new Date(2026, 0, 2);
+        alert('Invalid start date format. Please use YYYY-MM-DD.');
+        return;
     }
     processData(rawData);
     console.log('Selected start: ' + startDateInput.value);
