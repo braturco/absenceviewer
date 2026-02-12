@@ -121,7 +121,7 @@ function processData(data) {
         const last = row['LAST NAME'] || '';
         const first = row['FIRST NAME'] || '';
         const name = `${last}, ${first}`.trim();
-        const manager = row['DIRECT MANAGER'] || '';
+        const manager = row['LINE MANAGER'] || '';
         if (!name) {
             console.log('Skipping row due to empty name');
             return;
@@ -467,7 +467,7 @@ function exportToExcel() {
     ws_data.push(header_row_1);
     row_levels.push(null);
 
-    const header_row_2 = ['Department', 'Person', 'Direct Manager'];
+    const header_row_2 = ['Department', 'Person', 'Line Manager'];
     weeks.forEach(item => {
         const suffix = item.endDate.getFullYear() === 2025 ? ' (-1)' : '';
         const mm = (item.endDate.getMonth() + 1).toString().padStart(2, '0');
