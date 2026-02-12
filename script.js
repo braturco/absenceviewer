@@ -135,23 +135,10 @@ function processData(data) {
             console.log('Skipping row due to invalid dates:', start, end);
             return;
         }
-        const startDur = parseFloat(row['START_DATE_DURATION']) || 0;
-        const endDur = parseFloat(row['END_DATE_DURATION']) || 0;
         const normal = parseFloat(row['NORMAL WORKING HOURS']) || 40; // assume 40 if not
         const normalPerDay = normal / 5;
         const uom = row['UOM'] || 'H';
-        let startDurHours = startDur;
-        if (startDur === 0) {
-            startDurHours = normalPerDay;
-        } else if (uom === 'D') {
-            startDurHours *= normalPerDay;
-        }
-        let endDurHours = endDur;
-        if (endDur === 0) {
-            // Will calculate later
-        } else if (uom === 'D') {
-            endDurHours *= normalPerDay;
-        }
+
         // get all days from start to end
         const days = [];
         const current = new Date(start);
@@ -159,92 +146,48 @@ function processData(data) {
             days.push(new Date(current));
             current.setDate(current.getDate() + 1);
         }
-        if (days.length === 0) {
-            console.log('No days for absence:', name, start, end);
+
+        const workingDaysInAbsence = days.filter(d => d.getDay() >= 1 && d.getDay() <= 5);
+
+        if (workingDaysInAbsence.length === 0) {
+            console.log('Skipping absence with no working days:', name, start, end);
             return;
         }
-        const totalDays = days.length;
-        const middleDays = days.slice(1, -1); // days between start and end
-        const middleWorkingDays = middleDays.filter(d => {
-            const dow = d.getDay();
-            return dow >= 1 && dow <= 5; // Mon-Fri
-        });
-        const numMiddleWorking = middleWorkingDays.length;
+
         const absenceDur = parseFloat(row['ABSENCE DURATION']) || 0;
         let adjustedAbsenceDur = absenceDur;
         if (uom === 'D') {
             adjustedAbsenceDur *= normalPerDay;
         }
-        // For simplicity, assume daily rate is normalPerDay, and total matches Absence Duration
-        const daily = normalPerDay;
-        // Calculate total so far without end
-        const totalSoFar = startDurHours + numMiddleWorking * daily;
-        if (endDur === 0) {
-            endDurHours = adjustedAbsenceDur - totalSoFar;
-        }
-        // assign hours
-        const firstDay = days[0];
-        const lastDay = days[totalDays - 1];
 
-        // Hours for first day
-        let hoursFirst = startDurHours;
-        // Hours for last day
-        let hoursLast = endDur === 0 ? 0 : endDurHours;
-        // Total hours to distribute to middle
-        let totalMiddleHours = adjustedAbsenceDur - hoursFirst - hoursLast;
-        let hoursPerMiddleDay = 0;
-        if (numMiddleWorking > 0) {
-            hoursPerMiddleDay = totalMiddleHours / numMiddleWorking;
-        } else {
-            // If no middle days, adjust last day
-            if (endDur === 0) {
-                hoursLast = adjustedAbsenceDur - hoursFirst;
-            }
-        }
+        // Evenly distribute the total absence duration across the working days.
+        // This is a simplifying assumption because the source data's START/END_DATE_DURATION
+        // might be associated with non-working days. This approach is safer.
+        const hoursPerWorkDay = adjustedAbsenceDur / workingDaysInAbsence.length;
 
-        // Get absence details
         const absenceType = row['ABSENCE TYPE'] || '';
         const absenceComment = row['ABSENCE COMMENT'] || '';
 
-        // Assign to first day
-        const weekFirst = getWeekNumber(firstDay);
-        allWeeks.add(weekFirst);
-        if (!processedData[dept][name][weekFirst]) processedData[dept][name][weekFirst] = { total: 0, statuses: new Set(), dates: {} };
-        processedData[dept][name][weekFirst].total += hoursFirst;
-        processedData[dept][name][weekFirst].statuses.add(row['ABSENCE STATUS']);
-        const dateKeyFirst = firstDay.toISOString().split('T')[0];
-        if (!processedData[dept][name][weekFirst].dates[dateKeyFirst]) processedData[dept][name][weekFirst].dates[dateKeyFirst] = { total: 0, details: [] };
-        processedData[dept][name][weekFirst].dates[dateKeyFirst].total += hoursFirst;
-        processedData[dept][name][weekFirst].dates[dateKeyFirst].details.push({ type: absenceType, comment: absenceComment, hours: hoursFirst });
-
-        // Assign to middle days
-        middleWorkingDays.forEach(day => {
+        workingDaysInAbsence.forEach(day => {
             const week = getWeekNumber(day);
             allWeeks.add(week);
-            if (!processedData[dept][name][week]) processedData[dept][name][week] = { total: 0, statuses: new Set(), dates: {} };
-            processedData[dept][name][week].total += hoursPerMiddleDay;
+            if (!processedData[dept][name][week]) {
+                processedData[dept][name][week] = { total: 0, statuses: new Set(), dates: {} };
+            }
+            processedData[dept][name][week].total += hoursPerWorkDay;
             processedData[dept][name][week].statuses.add(row['ABSENCE STATUS']);
             const dateKey = day.toISOString().split('T')[0];
-            if (!processedData[dept][name][week].dates[dateKey]) processedData[dept][name][week].dates[dateKey] = { total: 0, details: [] };
-            processedData[dept][name][week].dates[dateKey].total += hoursPerMiddleDay;
-            processedData[dept][name][week].dates[dateKey].details.push({ type: absenceType, comment: absenceComment, hours: hoursPerMiddleDay });
+            if (!processedData[dept][name][week].dates[dateKey]) {
+                processedData[dept][name][week].dates[dateKey] = { total: 0, details: [] };
+            }
+            processedData[dept][name][week].dates[dateKey].total += hoursPerWorkDay;
+            processedData[dept][name][week].dates[dateKey].details.push({
+                type: absenceType,
+                comment: absenceComment,
+                hours: hoursPerWorkDay
+            });
         });
 
-        // Assign to last day
-        if (totalDays > 1) {
-            if (endDur === 0) {
-                hoursLast = adjustedAbsenceDur - hoursFirst - numMiddleWorking * hoursPerMiddleDay;
-            }
-            const weekLast = getWeekNumber(lastDay);
-            allWeeks.add(weekLast);
-            if (!processedData[dept][name][weekLast]) processedData[dept][name][weekLast] = { total: 0, statuses: new Set(), dates: {} };
-            processedData[dept][name][weekLast].total += hoursLast;
-            processedData[dept][name][weekLast].statuses.add(row['ABSENCE STATUS']);
-            const dateKeyLast = lastDay.toISOString().split('T')[0];
-            if (!processedData[dept][name][weekLast].dates[dateKeyLast]) processedData[dept][name][weekLast].dates[dateKeyLast] = { total: 0, details: [] };
-            processedData[dept][name][weekLast].dates[dateKeyLast].total += hoursLast;
-            processedData[dept][name][weekLast].dates[dateKeyLast].details.push({ type: absenceType, comment: absenceComment, hours: hoursLast });
-        }
         processedCount++;
     });
     console.log('Processed ' + processedCount + ' absences');
