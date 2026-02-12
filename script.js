@@ -521,11 +521,12 @@ function getClosestFriday(date, before = false) {
         daysToAdd = (5 - day) % 7;
         if (daysToAdd === 0 && day !== 5) daysToAdd = -7; // if not Friday, go back
     } else {
-        // on or after
+        // closest Friday
         if (day === 5) {
-            daysToAdd = 6; // next Friday
+            daysToAdd = 0;
         } else {
-            daysToAdd = (5 - day + 7) % 7;
+            daysToAdd = 5 - day;
+            if (daysToAdd > 0) daysToAdd -= 7;
         }
     }
     d.setDate(d.getDate() + daysToAdd);
