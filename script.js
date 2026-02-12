@@ -265,6 +265,7 @@ function generateReport() {
     html += '<tr>';
     Object.keys(monthGroups).forEach(m => {
         monthGroups[m].forEach(item => {
+            console.log('item.absolute:', item.absolute, 'item.weekNum:', item.weekNum);
             const suffix = item.endDate.getFullYear() === 2025 ? ' (-1)' : '';
             const mm = (item.endDate.getMonth() + 1).toString().padStart(2, '0');
             const dd = item.endDate.getDate().toString().padStart(2, '0');
