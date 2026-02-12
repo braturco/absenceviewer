@@ -70,3 +70,17 @@ tr.overall-total {
     overflow: auto;
     max-height: 80vh;
 }
+
+.custom-tooltip {
+    position: absolute;
+    background: white;
+    border: 1px solid #ccc;
+    padding: 8px;
+    max-width: 500px;
+    font-size: 12px;
+    white-space: pre-wrap;
+    z-index: 1000;
+    display: none;
+    box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
+    border-radius: 4px;
+}

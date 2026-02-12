@@ -368,7 +368,7 @@ function generateReport() {
                 }
                 return str;
             }).join('\n');
-            html += `<td class="${total === 0 ? 'zero' : ''}" title="${tooltip}"><strong>${total.toFixed(2)}${circles}</strong></td>`;
+            html += `<td class="${total === 0 ? 'zero' : ''}" data-tooltip="${tooltip}"><strong>${total.toFixed(2)}${circles}</strong></td>`;
         });
         html += `<td class="${deptTotal === 0 ? 'zero' : ''}"><strong>${deptTotal.toFixed(2)}</strong></td></tr>`;
         // Individual persons
@@ -391,7 +391,7 @@ function generateReport() {
                         }
                         return str;
                     }).join('\n');
-                    html += `<td class="${hours === 0 ? 'zero' : ''}" title="${tooltip}">${hours.toFixed(2)}${circles}</td>`;
+                    html += `<td class="${hours === 0 ? 'zero' : ''}" data-tooltip="${tooltip}">${hours.toFixed(2)}${circles}</td>`;
                 });
                 html += `<td class="${personTotal === 0 ? 'zero' : ''}">${personTotal.toFixed(2)}</td></tr>`;
             }
@@ -408,7 +408,7 @@ function generateReport() {
             }
             return str;
         }).join('\n');
-        html += `<td class="${total === 0 ? 'zero' : ''}" title="${tooltip}"><strong>${total.toFixed(2)}${circles}</strong></td>`;
+        html += `<td class="${total === 0 ? 'zero' : ''}" data-tooltip="${tooltip}"><strong>${total.toFixed(2)}${circles}</strong></td>`;
     });
     html += `<td class="${overallTotal === 0 ? 'zero' : ''}"><strong>${overallTotal.toFixed(2)}</strong></td></tr>`;
     html += '</tbody></table>';
@@ -416,6 +416,19 @@ function generateReport() {
     reportDiv.innerHTML = html;
     exportBtn.style.display = 'inline-block';
     document.getElementById('longWeekendBtn').addEventListener('click', generateLongWeekendReport);
+
+    // Setup custom tooltips
+    if (!document.getElementById('tooltip')) {
+        const tooltipDiv = document.createElement('div');
+        tooltipDiv.id = 'tooltip';
+        tooltipDiv.className = 'custom-tooltip';
+        document.body.appendChild(tooltipDiv);
+    }
+    const cells = reportDiv.querySelectorAll('td[data-tooltip]');
+    cells.forEach(cell => {
+        cell.addEventListener('mouseenter', showTooltip);
+        cell.addEventListener('mouseleave', hideTooltip);
+    });
 }
 
 function generateLongWeekendReport() {
@@ -546,4 +559,23 @@ function getWeekEndDate(weekNum) {
     const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const day = days[endDate.getDay()];
     return `${mm}/${dd}`;
+}
+
+function showTooltip(e) {
+    const tooltip = document.getElementById('tooltip');
+    tooltip.textContent = e.target.dataset.tooltip;
+    tooltip.style.display = 'block';
+    const rect = e.target.getBoundingClientRect();
+    const tooltipRect = tooltip.getBoundingClientRect();
+    let left = rect.left;
+    let top = rect.top - tooltipRect.height - 5;
+    if (top < 0) top = rect.bottom + 5;
+    if (left + tooltipRect.width > window.innerWidth) left = window.innerWidth - tooltipRect.width - 5;
+    if (left < 0) left = 5;
+    tooltip.style.left = left + 'px';
+    tooltip.style.top = top + 'px';
+}
+
+function hideTooltip() {
+    document.getElementById('tooltip').style.display = 'none';
 }
