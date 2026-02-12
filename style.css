@@ -76,7 +76,7 @@ tr.overall-total {
     background: white;
     border: 1px solid #ccc;
     padding: 8px;
-    max-width: 500px;
+    max-width: 1000px;
     font-size: 12px;
     white-space: pre-wrap;
     z-index: 1000;
