@@ -420,6 +420,8 @@ function generateLongWeekendReport() {
     reportDiv.insertBefore(titleDiv, reportDiv.firstChild);
 }
 
+const roundToHalf = (value) => Math.round(value * 2) / 2;
+
 function exportToExcel() {
     if (weeks.length === 0) {
         alert('Please generate a report first.');
@@ -431,7 +433,6 @@ function exportToExcel() {
     const row_levels = [];
 
     // 1. HEADER ROWS
-    // Month headers
     const monthGroups = {};
     weeks.forEach((item, idx) => {
         const month = item.endDate.getMonth();
@@ -443,9 +444,9 @@ function exportToExcel() {
         monthGroups[m]++;
     });
 
-    const header_row_1 = ['']; // Top-left empty
+    const header_row_1 = ['', '']; // Gaps for Dept/Person
     const merges = [];
-    let col_idx = 1;
+    let col_idx = 2; // Start after Dept/Person
     for (const month in monthGroups) {
         header_row_1.push(month);
         const span = monthGroups[month];
@@ -453,31 +454,29 @@ function exportToExcel() {
             merges.push({ s: { r: 0, c: col_idx }, e: { r: 0, c: col_idx + span - 1 } });
         }
         for (let i = 1; i < span; i++) {
-            header_row_1.push(''); // Gaps for merged cells
+            header_row_1.push('');
         }
         col_idx += span;
     }
     header_row_1.push('Total');
     ws_data.push(header_row_1);
-    row_levels.push(null); // No level for header
+    row_levels.push(null);
 
-    // Week headers
-    const header_row_2 = ['Department / Person'];
+    const header_row_2 = ['Department', 'Person'];
     weeks.forEach(item => {
         const suffix = item.endDate.getFullYear() === 2025 ? ' (-1)' : '';
         const mm = (item.endDate.getMonth() + 1).toString().padStart(2, '0');
         const dd = item.endDate.getDate().toString().padStart(2, '0');
         header_row_2.push(`Week ${item.weekNum}${suffix}\n(${mm}/${dd})`);
     });
-    header_row_2.push(''); // Total column has no sub-header
+    header_row_2.push('');
     ws_data.push(header_row_2);
-    row_levels.push(null); // No level for header
+    row_levels.push(null);
 
     // 2. DATA ROWS
     const depts = Object.keys(processedData).sort();
     depts.forEach(dept => {
-        // Department total row
-        const dept_row = [dept];
+        const dept_row = [dept, '']; // Dept name, empty person
         let dept_total_hours = 0;
         weeks.forEach(item => {
             let week_total = 0;
@@ -486,14 +485,13 @@ function exportToExcel() {
                 const data = processedData[dept][person][item.weekNum] || { total: 0 };
                 week_total += data.total;
             });
-            dept_row.push(week_total);
+            dept_row.push(roundToHalf(week_total));
             dept_total_hours += week_total;
         });
-        dept_row.push(dept_total_hours);
+        dept_row.push(roundToHalf(dept_total_hours));
         ws_data.push(dept_row);
-        row_levels.push({ level: 0 }); // Department is level 0
+        row_levels.push({ level: 0 });
 
-        // Person rows
         const persons = Object.keys(processedData[dept]).sort();
         persons.forEach(person => {
             let person_total = 0;
@@ -503,20 +501,20 @@ function exportToExcel() {
             });
 
             if (person_total > 0) {
-                const person_row = [person];
+                const person_row = [dept, person]; // Fill down dept name
                 weeks.forEach(item => {
                     const data = processedData[dept][person][item.weekNum] || { total: 0 };
-                    person_row.push(data.total);
+                    person_row.push(roundToHalf(data.total));
                 });
-                person_row.push(person_total);
+                person_row.push(roundToHalf(person_total));
                 ws_data.push(person_row);
-                row_levels.push({ level: 1 }); // Person is level 1
+                row_levels.push({ level: 1 });
             }
         });
     });
 
     // 3. OVERALL TOTAL ROW
-    const overall_total_row = ['Overall Total'];
+    const overall_total_row = ['Overall Total', ''];
     let overall_grand_total = 0;
     weeks.forEach(item => {
         let week_grand_total = 0;
@@ -527,27 +525,24 @@ function exportToExcel() {
                 week_grand_total += data.total;
             });
         });
-        overall_total_row.push(week_grand_total);
+        overall_total_row.push(roundToHalf(week_grand_total));
         overall_grand_total += week_grand_total;
     });
-    overall_total_row.push(overall_grand_total);
+    overall_total_row.push(roundToHalf(overall_grand_total));
     ws_data.push(overall_total_row);
-    row_levels.push(null); // No level for total
+    row_levels.push(null);
 
     // 4. CREATE SHEET AND ADD TO BOOK
     const ws = XLSX.utils.aoa_to_sheet(ws_data);
     
-    // Apply merges
     if (!ws['!merges']) ws['!merges'] = [];
     ws['!merges'].push(...merges);
 
-    // Apply outline levels
     ws['!rows'] = row_levels;
 
-    // Auto-fit columns
     const cols = Object.keys(header_row_1).length;
-    ws['!cols'] = [{ wch: 30 }]; // First column wider
-    for(let i=1; i<cols; i++) {
+    ws['!cols'] = [{ wch: 30 }, { wch: 20 }]; // Dept and Person columns
+    for(let i=2; i<cols; i++) {
         ws['!cols'].push({ wch: 15 });
     }
 
