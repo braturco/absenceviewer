@@ -23,15 +23,9 @@ let weeks = []; // for export
 function getClosestFriday(date, before = false) {
     const d = new Date(date);
     const day = d.getDay(); // 0=Sun, 1=Mon, ..., 5=Fri, 6=Sat
-    let daysToAdd;
-    if (before) {
-        // closest Friday on or before
-        daysToAdd = (5 - day) % 7;
-        if (daysToAdd === 0 && day !== 5) daysToAdd = -7; // if not Friday, go back
-    } else {
-        // on or after
-        daysToAdd = (5 - day + 7) % 7;
-    }
+    // For a week ending on Friday, the week runs Saturday-Friday.
+    // This calculates the days to add to get to the upcoming Friday.
+    const daysToAdd = (5 - day + 7) % 7;
     d.setDate(d.getDate() + daysToAdd);
     return d;
 }
