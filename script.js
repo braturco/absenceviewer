@@ -1,4 +1,3 @@
-alert('Running latest version!');
 const fileInput = document.getElementById('fileInput');
 const reportDiv = document.getElementById('report');
 const controlsDiv = document.getElementById('controls');
@@ -65,7 +64,11 @@ function parseCSV(csv) {
             let val = values[idx] ? values[idx].trim() : '';
             // Try to parse dates for date columns
             if (h === 'ABSENCE START DATE' || h === 'ABSENCE END DATE') {
-                const parsedDate = new Date(val);
+                // Dates from CSV are ambiguous (no timezone). Parsing them as YYYY-MM-DD
+                // can cause them to be interpreted as UTC midnight, which shifts them to the
+                // previous day in timezones west of UTC.
+                // To fix this, we'll append a time to treat them as local noon.
+                const parsedDate = new Date(val + 'T12:00:00');
                 if (!isNaN(parsedDate)) {
                     val = parsedDate;
                 } else {
