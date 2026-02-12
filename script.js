@@ -276,7 +276,7 @@ function generateReport() {
         if (month === 4 && item.endDate.getDate() === 1) monthName = 'Apr';
         const m = `${monthName} ${year}`;
         if (!monthGroups[m]) monthGroups[m] = [];
-        monthGroups[m].push({ week: item.weekNum, endDate: item.endDate, idx, absolute: item.weekNum, relative: i + 1 });
+        monthGroups[m].push({ week: item.weekNum, endDate: item.endDate, idx, absolute: item.weekNum, relative: idx + 1 });
     });
     // Sort weeks within each month by idx
     Object.keys(monthGroups).forEach(m => {
