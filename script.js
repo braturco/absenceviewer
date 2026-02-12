@@ -364,7 +364,7 @@ function generateReport() {
             const tooltip = Object.entries(deptTotals[item.weekNum].dates).map(([date, data]) => {
                 let str = `${date}: ${data.total.toFixed(2)}h`;
                 if (data.details.length > 0) {
-                    str += '\n' + data.details.map(d => `- ${d.type}: ${d.comment} (${d.hours.toFixed(2)}h)`).join('\n');
+                    str += ' ' + data.details.map(d => `${d.type}: ${d.comment} (${d.hours.toFixed(2)}h)`).join(', ');
                 }
                 return str;
             }).join('\n');
@@ -387,7 +387,7 @@ function generateReport() {
                     const tooltip = Object.entries(data.dates).map(([date, dataObj]) => {
                         let str = `${date}: ${dataObj.total.toFixed(2)}h`;
                         if (dataObj.details.length > 0) {
-                            str += '\n' + dataObj.details.map(d => `- ${d.type}: ${d.comment} (${d.hours.toFixed(2)}h)`).join('\n');
+                            str += ' ' + dataObj.details.map(d => `${d.type}: ${d.comment} (${d.hours.toFixed(2)}h)`).join(', ');
                         }
                         return str;
                     }).join('\n');
@@ -404,7 +404,7 @@ function generateReport() {
         const tooltip = Object.entries(overallTotals[item.weekNum].dates).map(([date, data]) => {
             let str = `${date}: ${data.total.toFixed(2)}h`;
             if (data.details.length > 0) {
-                str += '\n' + data.details.map(d => `- ${d.type}: ${d.comment} (${d.hours.toFixed(2)}h)`).join('\n');
+                str += ' ' + data.details.map(d => `${d.type}: ${d.comment} (${d.hours.toFixed(2)}h)`).join(', ');
             }
             return str;
         }).join('\n');
