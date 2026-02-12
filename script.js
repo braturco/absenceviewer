@@ -1,3 +1,4 @@
+alert('Running latest version!');
 const fileInput = document.getElementById('fileInput');
 const reportDiv = document.getElementById('report');
 const controlsDiv = document.getElementById('controls');
