@@ -121,12 +121,16 @@ function processData(data) {
         const last = row['LAST NAME'] || '';
         const first = row['FIRST NAME'] || '';
         const name = `${last}, ${first}`.trim();
+        const manager = row['DIRECT MANAGER'] || '';
         if (!name) {
             console.log('Skipping row due to empty name');
             return;
         }
         if (!processedData[dept]) processedData[dept] = {};
-        if (!processedData[dept][name]) processedData[dept][name] = {};
+        if (!processedData[dept][name]) processedData[dept][name] = {
+            weeks: {},
+            manager: manager
+        };
         const start = row['ABSENCE START DATE'];
         const end = row['ABSENCE END DATE'];
         if (!start || !end) {
@@ -175,17 +179,17 @@ function processData(data) {
         workingDaysInAbsence.forEach(day => {
             const week = getWeekNumber(day);
             allWeeks.add(week);
-            if (!processedData[dept][name][week]) {
-                processedData[dept][name][week] = { total: 0, statuses: new Set(), dates: {} };
+            if (!processedData[dept][name].weeks[week]) {
+                processedData[dept][name].weeks[week] = { total: 0, statuses: new Set(), dates: {} };
             }
-            processedData[dept][name][week].total += hoursPerWorkDay;
-            processedData[dept][name][week].statuses.add(row['ABSENCE STATUS']);
+            processedData[dept][name].weeks[week].total += hoursPerWorkDay;
+            processedData[dept][name].weeks[week].statuses.add(row['ABSENCE STATUS']);
             const dateKey = day.toISOString().split('T')[0];
-            if (!processedData[dept][name][week].dates[dateKey]) {
-                processedData[dept][name][week].dates[dateKey] = { total: 0, details: [] };
+            if (!processedData[dept][name].weeks[week].dates[dateKey]) {
+                processedData[dept][name].weeks[week].dates[dateKey] = { total: 0, details: [] };
             }
-            processedData[dept][name][week].dates[dateKey].total += hoursPerWorkDay;
-            processedData[dept][name][week].dates[dateKey].details.push({
+            processedData[dept][name].weeks[week].dates[dateKey].total += hoursPerWorkDay;
+            processedData[dept][name].weeks[week].dates[dateKey].details.push({
                 type: absenceType,
                 comment: absenceComment,
                 hours: hoursPerWorkDay
@@ -277,7 +281,7 @@ function generateReport() {
         const persons = Object.keys(processedData[dept]).sort();
         persons.forEach(person => {
             weeks.forEach(item => {
-                const data = processedData[dept][person][item.weekNum] || { total: 0, statuses: new Set(), dates: {} };
+                const data = processedData[dept][person].weeks[item.weekNum] || { total: 0, statuses: new Set(), dates: {} };
                 deptTotals[item.weekNum].total += data.total;
                 deptTotals[item.weekNum].statuses = new Set([...deptTotals[item.weekNum].statuses, ...data.statuses]);
                 for (const [date, dataObj] of Object.entries(data.dates)) {
@@ -316,13 +320,14 @@ function generateReport() {
         persons.forEach(person => {
             let personTotal = 0;
             weeks.forEach(item => {
-                const data = processedData[dept][person][item.weekNum] || { total: 0, statuses: new Set(), dates: {} };
+                const data = processedData[dept][person].weeks[item.weekNum] || { total: 0, statuses: new Set(), dates: {} };
                 personTotal += data.total;
             });
             if (personTotal > 0) {
-                html += `<tr class="person-row ${deptId}" style="display: table-row;"><td>${person}</td>`;
+                const manager = processedData[dept][person].manager;
+                html += `<tr class="person-row ${deptId}" style="display: table-row;"><td data-tooltip="Manager: ${manager}">${person}</td>`;
                 weeks.forEach(item => {
-                    const data = processedData[dept][person][item.weekNum] || { total: 0, statuses: new Set(), dates: {} };
+                    const data = processedData[dept][person].weeks[item.weekNum] || { total: 0, statuses: new Set(), dates: {} };
                     const hours = data.total;
                     const circles = Array.from(data.statuses).map(s => `<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background-color:${statusColors[s] || 'black'}; margin-left:2px;"></span>`).join('');
                     const tooltip = Object.entries(data.dates).map(([date, dataObj]) => {
@@ -444,9 +449,9 @@ function exportToExcel() {
         monthGroups[m]++;
     });
 
-    const header_row_1 = ['', '']; // Gaps for Dept/Person
+    const header_row_1 = ['', '', '']; // Gaps for Dept/Person/Manager
     const merges = [];
-    let col_idx = 2; // Start after Dept/Person
+    let col_idx = 3; // Start after Dept/Person/Manager
     for (const month in monthGroups) {
         header_row_1.push(month);
         const span = monthGroups[month];
@@ -462,7 +467,7 @@ function exportToExcel() {
     ws_data.push(header_row_1);
     row_levels.push(null);
 
-    const header_row_2 = ['Department', 'Person'];
+    const header_row_2 = ['Department', 'Person', 'Direct Manager'];
     weeks.forEach(item => {
         const suffix = item.endDate.getFullYear() === 2025 ? ' (-1)' : '';
         const mm = (item.endDate.getMonth() + 1).toString().padStart(2, '0');
@@ -476,13 +481,13 @@ function exportToExcel() {
     // 2. DATA ROWS
     const depts = Object.keys(processedData).sort();
     depts.forEach(dept => {
-        const dept_row = [dept, '']; // Dept name, empty person
+        const dept_row = [dept, '', '']; // Dept name, empty person & manager
         let dept_total_hours = 0;
         weeks.forEach(item => {
             let week_total = 0;
             const persons = Object.keys(processedData[dept]);
             persons.forEach(person => {
-                const data = processedData[dept][person][item.weekNum] || { total: 0 };
+                const data = processedData[dept][person].weeks[item.weekNum] || { total: 0 };
                 week_total += data.total;
             });
             dept_row.push(roundToHalf(week_total));
@@ -496,14 +501,15 @@ function exportToExcel() {
         persons.forEach(person => {
             let person_total = 0;
             weeks.forEach(item => {
-                const data = processedData[dept][person][item.weekNum] || { total: 0 };
+                const data = processedData[dept][person].weeks[item.weekNum] || { total: 0 };
                 person_total += data.total;
             });
 
             if (person_total > 0) {
-                const person_row = [dept, person]; // Fill down dept name
+                const manager = processedData[dept][person].manager;
+                const person_row = [dept, person, manager]; // Fill down dept name
                 weeks.forEach(item => {
-                    const data = processedData[dept][person][item.weekNum] || { total: 0 };
+                    const data = processedData[dept][person].weeks[item.weekNum] || { total: 0 };
                     person_row.push(roundToHalf(data.total));
                 });
                 person_row.push(roundToHalf(person_total));
@@ -514,14 +520,14 @@ function exportToExcel() {
     });
 
     // 3. OVERALL TOTAL ROW
-    const overall_total_row = ['Overall Total', ''];
+    const overall_total_row = ['Overall Total', '', ''];
     let overall_grand_total = 0;
     weeks.forEach(item => {
         let week_grand_total = 0;
         depts.forEach(dept => {
             const persons = Object.keys(processedData[dept]);
             persons.forEach(person => {
-                const data = processedData[dept][person][item.weekNum] || { total: 0 };
+                const data = processedData[dept][person].weeks[item.weekNum] || { total: 0 };
                 week_grand_total += data.total;
             });
         });
@@ -541,8 +547,8 @@ function exportToExcel() {
     ws['!rows'] = row_levels;
 
     const cols = Object.keys(header_row_1).length;
-    ws['!cols'] = [{ wch: 30 }, { wch: 20 }]; // Dept and Person columns
-    for(let i=2; i<cols; i++) {
+    ws['!cols'] = [{ wch: 30 }, { wch: 20 }, { wch: 20 }]; // Dept, Person, and Manager columns
+    for(let i=3; i<cols; i++) {
         ws['!cols'].push({ wch: 15 });
     }
 

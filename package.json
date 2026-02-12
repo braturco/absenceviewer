@@ -1,0 +1,19 @@
+{
+  "name": "absenceviewer",
+  "version": "1.0.0",
+  "description": "A simple HTML/JavaScript application to view absence data",
+  "main": "index.html",
+  "scripts": {
+    "deploy": "gh-pages -d ."
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/turco/absenceviewer.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "homepage": "https://turco.github.io/absenceviewer",
+  "devDependencies": {
+    "gh-pages": "^6.1.1"
+  }
+}
