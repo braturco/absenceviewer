@@ -145,7 +145,7 @@ function parseCSVLine(line) {
 
 function processData(data) {
     // data is array of objects
-    // create departments map: dept -> person -> weeks: {week: hours}
+    // create departments map: MarketSubSector -> dept -> person -> weeks: {week: hours}
     processedData = {};
     allWeeks = new Set();
     let processedCount = 0;
@@ -170,14 +170,16 @@ function processData(data) {
         const deptId = dept.substring(0, 8);
         const marketSubSector = orgData[deptId] || 'Unknown';
 
-        if (!processedData[dept]) {
-            processedData[dept] = {
-                marketSubSector: marketSubSector,
+        if (!processedData[marketSubSector]) {
+            processedData[marketSubSector] = {};
+        }
+        if (!processedData[marketSubSector][dept]) {
+            processedData[marketSubSector][dept] = {
                 persons: {}
             };
         }
-        if (!processedData[dept].persons[name]) {
-            processedData[dept].persons[name] = {
+        if (!processedData[marketSubSector][dept].persons[name]) {
+            processedData[marketSubSector][dept].persons[name] = {
                 weeks: {},
                 manager: manager
             };
@@ -230,17 +232,17 @@ function processData(data) {
         workingDaysInAbsence.forEach(day => {
             const week = getWeekNumber(day);
             allWeeks.add(week);
-            if (!processedData[dept].persons[name].weeks[week]) {
-                processedData[dept].persons[name].weeks[week] = { total: 0, statuses: new Set(), dates: {} };
+            if (!processedData[marketSubSector][dept].persons[name].weeks[week]) {
+                processedData[marketSubSector][dept].persons[name].weeks[week] = { total: 0, statuses: new Set(), dates: {} };
             }
-            processedData[dept].persons[name].weeks[week].total += hoursPerWorkDay;
-            processedData[dept].persons[name].weeks[week].statuses.add(row['ABSENCE STATUS']);
+            processedData[marketSubSector][dept].persons[name].weeks[week].total += hoursPerWorkDay;
+            processedData[marketSubSector][dept].persons[name].weeks[week].statuses.add(row['ABSENCE STATUS']);
             const dateKey = day.toISOString().split('T')[0];
-            if (!processedData[dept].persons[name].weeks[week].dates[dateKey]) {
-                processedData[dept].persons[name].weeks[week].dates[dateKey] = { total: 0, details: [] };
+            if (!processedData[marketSubSector][dept].persons[name].weeks[week].dates[dateKey]) {
+                processedData[marketSubSector][dept].persons[name].weeks[week].dates[dateKey] = { total: 0, details: [] };
             }
-            processedData[dept].persons[name].weeks[week].dates[dateKey].total += hoursPerWorkDay;
-            processedData[dept].persons[name].weeks[week].dates[dateKey].details.push({
+            processedData[marketSubSector][dept].persons[name].weeks[week].dates[dateKey].total += hoursPerWorkDay;
+            processedData[marketSubSector][dept].persons[name].weeks[week].dates[dateKey].details.push({
                 type: absenceType,
                 comment: absenceComment,
                 hours: hoursPerWorkDay
@@ -250,7 +252,7 @@ function processData(data) {
         processedCount++;
     });
     console.log('Processed ' + processedCount + ' absences');
-    console.log('Departments:', Object.keys(processedData));
+    console.log('Market Sub Sectors:', Object.keys(processedData));
     console.log('All weeks:', Array.from(allWeeks).sort());
 }
 
@@ -302,7 +304,7 @@ function generateReport() {
     legendHtml += '</div>';
     // Build table
     let html = legendHtml + '<table><thead>';
-    html += '<tr><th rowspan="2">Department / Person</th>';
+    html += '<tr><th rowspan="2">Market Sub Sector / Department / Person</th>';
     Object.keys(monthGroups).forEach(m => {
         html += `<th colspan="${monthGroups[m].length}">${m}</th>`;
     });
@@ -318,81 +320,113 @@ function generateReport() {
         });
     });
     html += '</tr></thead><tbody>';
-    // Group by department
+    // Group by Market Sub Sector
     const overallTotals = {};
     weeks.forEach(item => overallTotals[item.weekNum] = { total: 0, statuses: new Set(), dates: {} });
     let overallTotal = 0;
-    const depts = Object.keys(processedData).sort();
-    depts.forEach(dept => {
-        const deptId = dept.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '');
-        // Department total row
-        const deptTotals = {};
-        weeks.forEach(item => deptTotals[item.weekNum] = { total: 0, statuses: new Set(), dates: {} });
-        let deptTotal = 0;
-        const persons = Object.keys(processedData[dept].persons).sort();
-        persons.forEach(person => {
-            weeks.forEach(item => {
-                const data = processedData[dept].persons[person].weeks[item.weekNum] || { total: 0, statuses: new Set(), dates: {} };
-                deptTotals[item.weekNum].total += data.total;
-                deptTotals[item.weekNum].statuses = new Set([...deptTotals[item.weekNum].statuses, ...data.statuses]);
-                for (const [date, dataObj] of Object.entries(data.dates)) {
-                    if (!deptTotals[item.weekNum].dates[date]) deptTotals[item.weekNum].dates[date] = { total: 0, details: [] };
-                    deptTotals[item.weekNum].dates[date].total += dataObj.total;
-                    deptTotals[item.weekNum].dates[date].details.push(...dataObj.details);
-                }
-                deptTotal += data.total;
-            });
-        });
-        weeks.forEach(item => {
-            overallTotals[item.weekNum].total += deptTotals[item.weekNum].total;
-            overallTotals[item.weekNum].statuses = new Set([...overallTotals[item.weekNum].statuses, ...deptTotals[item.weekNum].statuses]);
-            for (const [date, dataObj] of Object.entries(deptTotals[item.weekNum].dates)) {
-                if (!overallTotals[item.weekNum].dates[date]) overallTotals[item.weekNum].dates[date] = { total: 0, details: [] };
-                overallTotals[item.weekNum].dates[date].total += dataObj.total;
-                overallTotals[item.weekNum].dates[date].details.push(...dataObj.details);
-            }
-            overallTotal += deptTotals[item.weekNum].total;
-        });
-        const marketSubSector = processedData[dept].marketSubSector;
-        html += `<tr class="dept-header" onclick="toggleDept('${deptId}')"><td><strong>${marketSubSector} - ${dept}</strong> <span id="arrow-${deptId}">▼</span></td>`;
-        weeks.forEach(item => {
-            const total = deptTotals[item.weekNum].total;
-            const circles = Array.from(deptTotals[item.weekNum].statuses).map(s => `<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background-color:${statusColors[s] || 'black'}; margin-left:2px;"></span>`).join('');
-            const tooltip = Object.entries(deptTotals[item.weekNum].dates).map(([date, data]) => {
-                let str = `${date}: ${data.total.toFixed(2)}h`;
-                if (data.details.length > 0) {
-                    str += ' ' + data.details.map(d => `${d.type}: ${d.comment} (${d.hours.toFixed(2)}h)`).join(', ');
-                }
-                return str;
-            }).join('\n');
-            html += `<td class="${total === 0 ? 'zero' : ''}" data-tooltip="${tooltip}"><strong>${total.toFixed(2)}${circles}</strong></td>`;
-        });
-        html += `<td class="${deptTotal === 0 ? 'zero' : ''}"><strong>${deptTotal.toFixed(2)}</strong></td></tr>`;
-        // Individual persons
-        persons.forEach(person => {
-            let personTotal = 0;
-            weeks.forEach(item => {
-                const data = processedData[dept].persons[person].weeks[item.weekNum] || { total: 0, statuses: new Set(), dates: {} };
-                personTotal += data.total;
-            });
-            if (personTotal > 0) {
-                const manager = processedData[dept].persons[person].manager;
-                html += `<tr class="person-row ${deptId}" style="display: table-row;"><td data-tooltip="Manager: ${manager}">${person}</td>`;
+    const marketSubSectors = Object.keys(processedData).sort();
+    marketSubSectors.forEach(marketSubSector => {
+        const marketId = marketSubSector.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '');
+        // Market Sub Sector total row
+        const marketTotals = {};
+        weeks.forEach(item => marketTotals[item.weekNum] = { total: 0, statuses: new Set(), dates: {} });
+        let marketTotal = 0;
+
+        const depts = Object.keys(processedData[marketSubSector]).sort();
+        depts.forEach(dept => {
+            const persons = Object.keys(processedData[marketSubSector][dept].persons).sort();
+            persons.forEach(person => {
                 weeks.forEach(item => {
-                    const data = processedData[dept].persons[person].weeks[item.weekNum] || { total: 0, statuses: new Set(), dates: {} };
-                    const hours = data.total;
-                    const circles = Array.from(data.statuses).map(s => `<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background-color:${statusColors[s] || 'black'}; margin-left:2px;"></span>`).join('');
-                    const tooltip = Object.entries(data.dates).map(([date, dataObj]) => {
-                        let str = `${date}: ${dataObj.total.toFixed(2)}h`;
-                        if (dataObj.details.length > 0) {
-                            str += ' ' + dataObj.details.map(d => `${d.type}: ${d.comment} (${d.hours.toFixed(2)}h)`).join(', ');
-                        }
-                        return str;
-                    }).join('\n');
-                    html += `<td class="${hours === 0 ? 'zero' : ''}" data-tooltip="${tooltip}">${hours.toFixed(2)}${circles}</td>`;
+                    const data = processedData[marketSubSector][dept].persons[person].weeks[item.weekNum] || { total: 0, statuses: new Set(), dates: {} };
+                    marketTotals[item.weekNum].total += data.total;
+                    marketTotals[item.weekNum].statuses = new Set([...marketTotals[item.weekNum].statuses, ...data.statuses]);
+                    for (const [date, dataObj] of Object.entries(data.dates)) {
+                        if (!marketTotals[item.weekNum].dates[date]) marketTotals[item.weekNum].dates[date] = { total: 0, details: [] };
+                        marketTotals[item.weekNum].dates[date].total += dataObj.total;
+                        marketTotals[item.weekNum].dates[date].details.push(...dataObj.details);
+                    }
+                    marketTotal += data.total;
                 });
-                html += `<td class="${personTotal === 0 ? 'zero' : ''}">${personTotal.toFixed(2)}</td></tr>`;
-            }
+            });
+        });
+
+        html += `<tr class="market-header" onclick="toggleMarket('${marketId}')"><td><strong>${marketSubSector}</strong> <span id="arrow-market-${marketId}">▼</span></td>`;
+        weeks.forEach(item => {
+            const total = marketTotals[item.weekNum].total;
+            html += `<td class="${total === 0 ? 'zero' : ''}"><strong>${total.toFixed(2)}</strong></td>`;
+        });
+        html += `<td class="${marketTotal === 0 ? 'zero' : ''}"><strong>${marketTotal.toFixed(2)}</strong></td></tr>`;
+
+        depts.forEach(dept => {
+            const deptId = dept.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '');
+            // Department total row
+            const deptTotals = {};
+            weeks.forEach(item => deptTotals[item.weekNum] = { total: 0, statuses: new Set(), dates: {} });
+            let deptTotal = 0;
+            const persons = Object.keys(processedData[marketSubSector][dept].persons).sort();
+            persons.forEach(person => {
+                weeks.forEach(item => {
+                    const data = processedData[marketSubSector][dept].persons[person].weeks[item.weekNum] || { total: 0, statuses: new Set(), dates: {} };
+                    deptTotals[item.weekNum].total += data.total;
+                    deptTotals[item.weekNum].statuses = new Set([...deptTotals[item.weekNum].statuses, ...data.statuses]);
+                    for (const [date, dataObj] of Object.entries(data.dates)) {
+                        if (!deptTotals[item.weekNum].dates[date]) deptTotals[item.weekNum].dates[date] = { total: 0, details: [] };
+                        deptTotals[item.weekNum].dates[date].total += dataObj.total;
+                        deptTotals[item.weekNum].dates[date].details.push(...dataObj.details);
+                    }
+                    deptTotal += data.total;
+                });
+            });
+            weeks.forEach(item => {
+                overallTotals[item.weekNum].total += deptTotals[item.weekNum].total;
+                overallTotals[item.weekNum].statuses = new Set([...overallTotals[item.weekNum].statuses, ...deptTotals[item.weekNum].statuses]);
+                for (const [date, dataObj] of Object.entries(deptTotals[item.weekNum].dates)) {
+                    if (!overallTotals[item.weekNum].dates[date]) overallTotals[item.weekNum].dates[date] = { total: 0, details: [] };
+                    overallTotals[item.weekNum].dates[date].total += dataObj.total;
+                    overallTotals[item.weekNum].dates[date].details.push(...dataObj.details);
+                }
+                overallTotal += deptTotals[item.weekNum].total;
+            });
+            html += `<tr class="dept-header ${marketId}" onclick="toggleDept('${deptId}')"><td><strong>${dept}</strong> <span id="arrow-dept-${deptId}">▼</span></td>`;
+            weeks.forEach(item => {
+                const total = deptTotals[item.weekNum].total;
+                const circles = Array.from(deptTotals[item.weekNum].statuses).map(s => `<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background-color:${statusColors[s] || 'black'}; margin-left:2px;"></span>`).join('');
+                const tooltip = Object.entries(deptTotals[item.weekNum].dates).map(([date, data]) => {
+                    let str = `${date}: ${data.total.toFixed(2)}h`;
+                    if (data.details.length > 0) {
+                        str += ' ' + data.details.map(d => `${d.type}: ${d.comment} (${d.hours.toFixed(2)}h)`).join(', ');
+                    }
+                    return str;
+                }).join('\n');
+                html += `<td class="${total === 0 ? 'zero' : ''}" data-tooltip="${tooltip}"><strong>${total.toFixed(2)}${circles}</strong></td>`;
+            });
+            html += `<td class="${deptTotal === 0 ? 'zero' : ''}"><strong>${deptTotal.toFixed(2)}</strong></td></tr>`;
+            // Individual persons
+            persons.forEach(person => {
+                let personTotal = 0;
+                weeks.forEach(item => {
+                    const data = processedData[marketSubSector][dept].persons[person].weeks[item.weekNum] || { total: 0, statuses: new Set(), dates: {} };
+                    personTotal += data.total;
+                });
+                if (personTotal > 0) {
+                    const manager = processedData[marketSubSector][dept].persons[person].manager;
+                    html += `<tr class="person-row ${marketId} ${deptId}" style="display: table-row;"><td data-tooltip="Manager: ${manager}">${person}</td>`;
+                    weeks.forEach(item => {
+                        const data = processedData[marketSubSector][dept].persons[person].weeks[item.weekNum] || { total: 0, statuses: new Set(), dates: {} };
+                        const hours = data.total;
+                        const circles = Array.from(data.statuses).map(s => `<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background-color:${statusColors[s] || 'black'}; margin-left:2px;"></span>`).join('');
+                        const tooltip = Object.entries(data.dates).map(([date, dataObj]) => {
+                            let str = `${date}: ${dataObj.total.toFixed(2)}h`;
+                            if (dataObj.details.length > 0) {
+                                str += ' ' + dataObj.details.map(d => `${d.type}: ${d.comment} (${d.hours.toFixed(2)}h)`).join(', ');
+                            }
+                            return str;
+                        }).join('\n');
+                        html += `<td class="${hours === 0 ? 'zero' : ''}" data-tooltip="${tooltip}">${hours.toFixed(2)}${circles}</td>`;
+                    });
+                    html += `<td class="${personTotal === 0 ? 'zero' : ''}">${personTotal.toFixed(2)}</td></tr>`;
+                }
+            });
         });
     });
     html += `<tr class="overall-total"><td><strong>Overall Total</strong></td>`;
@@ -531,45 +565,46 @@ function exportToExcel() {
     row_levels.push(null);
 
     // 2. DATA ROWS
-    const depts = Object.keys(processedData).sort();
-    depts.forEach(dept => {
-        const marketSubSector = processedData[dept].marketSubSector;
-        const dept_row = [marketSubSector, dept, '', '']; // Market Sub Sector, Dept name, empty person & manager
-        let dept_total_hours = 0;
-        weeks.forEach(item => {
-            let week_total = 0;
-            const persons = Object.keys(processedData[dept].persons);
-            persons.forEach(person => {
-                const data = processedData[dept].persons[person].weeks[item.weekNum] || { total: 0 };
-                week_total += data.total;
-            });
-            dept_row.push(roundToHalf(week_total));
-            dept_total_hours += week_total;
-        });
-        dept_row.push(roundToHalf(dept_total_hours));
-        ws_data.push(dept_row);
-        row_levels.push({ level: 0 });
-
-        const persons = Object.keys(processedData[dept].persons).sort();
-        persons.forEach(person => {
-            let person_total = 0;
+    const marketSubSectors = Object.keys(processedData).sort();
+    marketSubSectors.forEach(marketSubSector => {
+        const depts = Object.keys(processedData[marketSubSector]).sort();
+        depts.forEach(dept => {
+            const dept_row = [marketSubSector, dept, '', '']; // Market Sub Sector, Dept name, empty person & manager
+            let dept_total_hours = 0;
             weeks.forEach(item => {
-                const data = processedData[dept].persons[person].weeks[item.weekNum] || { total: 0 };
-                person_total += data.total;
-            });
-
-            if (person_total > 0) {
-                const marketSubSector = processedData[dept].marketSubSector;
-                const manager = processedData[dept].persons[person].manager;
-                const person_row = [marketSubSector, dept, person, manager]; // Fill down info
-                weeks.forEach(item => {
-                    const data = processedData[dept].persons[person].weeks[item.weekNum] || { total: 0 };
-                    person_row.push(roundToHalf(data.total));
+                let week_total = 0;
+                const persons = Object.keys(processedData[marketSubSector][dept].persons);
+                persons.forEach(person => {
+                    const data = processedData[marketSubSector][dept].persons[person].weeks[item.weekNum] || { total: 0 };
+                    week_total += data.total;
                 });
-                person_row.push(roundToHalf(person_total));
-                ws_data.push(person_row);
-                row_levels.push({ level: 1 });
-            }
+                dept_row.push(roundToHalf(week_total));
+                dept_total_hours += week_total;
+            });
+            dept_row.push(roundToHalf(dept_total_hours));
+            ws_data.push(dept_row);
+            row_levels.push({ level: 1 });
+
+            const persons = Object.keys(processedData[marketSubSector][dept].persons).sort();
+            persons.forEach(person => {
+                let person_total = 0;
+                weeks.forEach(item => {
+                    const data = processedData[marketSubSector][dept].persons[person].weeks[item.weekNum] || { total: 0 };
+                    person_total += data.total;
+                });
+
+                if (person_total > 0) {
+                    const manager = processedData[marketSubSector][dept].persons[person].manager;
+                    const person_row = [marketSubSector, dept, person, manager]; // Fill down info
+                    weeks.forEach(item => {
+                        const data = processedData[marketSubSector][dept].persons[person].weeks[item.weekNum] || { total: 0 };
+                        person_row.push(roundToHalf(data.total));
+                    });
+                    person_row.push(roundToHalf(person_total));
+                    ws_data.push(person_row);
+                    row_levels.push({ level: 2 });
+                }
+            });
         });
     });
 
@@ -578,11 +613,14 @@ function exportToExcel() {
     let overall_grand_total = 0;
     weeks.forEach(item => {
         let week_grand_total = 0;
-        depts.forEach(dept => {
-            const persons = Object.keys(processedData[dept].persons);
-            persons.forEach(person => {
-                const data = processedData[dept].persons[person].weeks[item.weekNum] || { total: 0 };
-                week_grand_total += data.total;
+        marketSubSectors.forEach(marketSubSector => {
+            const depts = Object.keys(processedData[marketSubSector]).sort();
+            depts.forEach(dept => {
+                const persons = Object.keys(processedData[marketSubSector][dept].persons);
+                persons.forEach(person => {
+                    const data = processedData[marketSubSector][dept].persons[person].weeks[item.weekNum] || { total: 0 };
+                    week_grand_total += data.total;
+                });
             });
         });
         overall_total_row.push(roundToHalf(week_grand_total));
@@ -622,9 +660,24 @@ function getWeekNumber(date) {
     return week;
 }
 
+function toggleMarket(marketId) {
+    const rows = document.querySelectorAll(`.dept-header.${marketId}, .person-row.${marketId}`);
+    const arrow = document.getElementById(`arrow-market-${marketId}`);
+    let collapsed = false;
+    rows.forEach(row => {
+        if (row.style.display === 'none') {
+            row.style.display = 'table-row';
+        } else {
+            row.style.display = 'none';
+            collapsed = true;
+        }
+    });
+    arrow.textContent = collapsed ? '▶' : '▼';
+}
+
 function toggleDept(deptId) {
     const rows = document.querySelectorAll(`.person-row.${deptId}`);
-    const arrow = document.getElementById(`arrow-${deptId}`);
+    const arrow = document.getElementById(`arrow-dept-${deptId}`);
     let collapsed = false;
     rows.forEach(row => {
         if (row.style.display === 'none') {
