@@ -118,6 +118,13 @@ function processData(data) {
             return;
         }
         const dept = row['DEPARTMENT'];
+        const deptParts = dept.split(' - ');
+        if (deptParts.length < 3) {
+            console.log('Unexpected department format:', dept);
+            return;
+        }
+        const sector = deptParts[1].trim();
+        const subdept = deptParts[2].trim();
         const last = row['LAST NAME'] || '';
         const first = row['FIRST NAME'] || '';
         const name = `${last}, ${first}`.trim();
@@ -126,8 +133,9 @@ function processData(data) {
             console.log('Skipping row due to empty name');
             return;
         }
-        if (!processedData[dept]) processedData[dept] = {};
-        if (!processedData[dept][name]) processedData[dept][name] = {
+        if (!processedData[sector]) processedData[sector] = {};
+        if (!processedData[sector][subdept]) processedData[sector][subdept] = {};
+        if (!processedData[sector][subdept][name]) processedData[sector][subdept][name] = {
             weeks: {},
             manager: manager
         };
@@ -179,17 +187,17 @@ function processData(data) {
         workingDaysInAbsence.forEach(day => {
             const week = getWeekNumber(day);
             allWeeks.add(week);
-            if (!processedData[dept][name].weeks[week]) {
-                processedData[dept][name].weeks[week] = { total: 0, statuses: new Set(), dates: {} };
+            if (!processedData[sector][subdept][name].weeks[week]) {
+                processedData[sector][subdept][name].weeks[week] = { total: 0, statuses: new Set(), dates: {} };
             }
-            processedData[dept][name].weeks[week].total += hoursPerWorkDay;
-            processedData[dept][name].weeks[week].statuses.add(row['ABSENCE STATUS']);
+            processedData[sector][subdept][name].weeks[week].total += hoursPerWorkDay;
+            processedData[sector][subdept][name].weeks[week].statuses.add(row['ABSENCE STATUS']);
             const dateKey = day.toISOString().split('T')[0];
-            if (!processedData[dept][name].weeks[week].dates[dateKey]) {
-                processedData[dept][name].weeks[week].dates[dateKey] = { total: 0, details: [] };
+            if (!processedData[sector][subdept][name].weeks[week].dates[dateKey]) {
+                processedData[sector][subdept][name].weeks[week].dates[dateKey] = { total: 0, details: [] };
             }
-            processedData[dept][name].weeks[week].dates[dateKey].total += hoursPerWorkDay;
-            processedData[dept][name].weeks[week].dates[dateKey].details.push({
+            processedData[sector][subdept][name].weeks[week].dates[dateKey].total += hoursPerWorkDay;
+            processedData[sector][subdept][name].weeks[week].dates[dateKey].details.push({
                 type: absenceType,
                 comment: absenceComment,
                 hours: hoursPerWorkDay
@@ -251,7 +259,7 @@ function generateReport() {
     legendHtml += '</div>';
     // Build table
     let html = legendHtml + '<table><thead>';
-    html += '<tr><th rowspan="2">Department / Person</th>';
+    html += '<tr><th rowspan="2">Market Sector</th><th rowspan="2">Department / Person</th>';
     Object.keys(monthGroups).forEach(m => {
         html += `<th colspan="${monthGroups[m].length}">${m}</th>`;
     });
@@ -267,83 +275,86 @@ function generateReport() {
         });
     });
     html += '</tr></thead><tbody>';
-    // Group by department
+    // Group by sector and department
     const overallTotals = {};
     weeks.forEach(item => overallTotals[item.weekNum] = { total: 0, statuses: new Set(), dates: {} });
     let overallTotal = 0;
-    const depts = Object.keys(processedData).sort();
-    depts.forEach(dept => {
-        const deptId = dept.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '');
-        // Department total row
-        const deptTotals = {};
-        weeks.forEach(item => deptTotals[item.weekNum] = { total: 0, statuses: new Set(), dates: {} });
-        let deptTotal = 0;
-        const persons = Object.keys(processedData[dept]).sort();
-        persons.forEach(person => {
-            weeks.forEach(item => {
-                const data = processedData[dept][person].weeks[item.weekNum] || { total: 0, statuses: new Set(), dates: {} };
-                deptTotals[item.weekNum].total += data.total;
-                deptTotals[item.weekNum].statuses = new Set([...deptTotals[item.weekNum].statuses, ...data.statuses]);
-                for (const [date, dataObj] of Object.entries(data.dates)) {
-                    if (!deptTotals[item.weekNum].dates[date]) deptTotals[item.weekNum].dates[date] = { total: 0, details: [] };
-                    deptTotals[item.weekNum].dates[date].total += dataObj.total;
-                    deptTotals[item.weekNum].dates[date].details.push(...dataObj.details);
-                }
-                deptTotal += data.total;
-            });
-        });
-        weeks.forEach(item => {
-            overallTotals[item.weekNum].total += deptTotals[item.weekNum].total;
-            overallTotals[item.weekNum].statuses = new Set([...overallTotals[item.weekNum].statuses, ...deptTotals[item.weekNum].statuses]);
-            for (const [date, dataObj] of Object.entries(deptTotals[item.weekNum].dates)) {
-                if (!overallTotals[item.weekNum].dates[date]) overallTotals[item.weekNum].dates[date] = { total: 0, details: [] };
-                overallTotals[item.weekNum].dates[date].total += dataObj.total;
-                overallTotals[item.weekNum].dates[date].details.push(...dataObj.details);
-            }
-            overallTotal += deptTotals[item.weekNum].total;
-        });
-        html += `<tr class="dept-header" onclick="toggleDept('${deptId}')"><td><strong>${dept}</strong> <span id="arrow-${deptId}">▼</span></td>`;
-        weeks.forEach(item => {
-            const total = deptTotals[item.weekNum].total;
-            const circles = Array.from(deptTotals[item.weekNum].statuses).map(s => `<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background-color:${statusColors[s] || 'black'}; margin-left:2px;"></span>`).join('');
-            const tooltip = Object.entries(deptTotals[item.weekNum].dates).map(([date, data]) => {
-                let str = `${date}: ${data.total.toFixed(2)}h`;
-                if (data.details.length > 0) {
-                    str += ' ' + data.details.map(d => `${d.type}: ${d.comment} (${d.hours.toFixed(2)}h)`).join(', ');
-                }
-                return str;
-            }).join('\n');
-            html += `<td class="${total === 0 ? 'zero' : ''}" data-tooltip="${tooltip}"><strong>${total.toFixed(2)}${circles}</strong></td>`;
-        });
-        html += `<td class="${deptTotal === 0 ? 'zero' : ''}"><strong>${deptTotal.toFixed(2)}</strong></td></tr>`;
-        // Individual persons
-        persons.forEach(person => {
-            let personTotal = 0;
-            weeks.forEach(item => {
-                const data = processedData[dept][person].weeks[item.weekNum] || { total: 0, statuses: new Set(), dates: {} };
-                personTotal += data.total;
-            });
-            if (personTotal > 0) {
-                const manager = processedData[dept][person].manager;
-                html += `<tr class="person-row ${deptId}" style="display: table-row;"><td data-tooltip="Manager: ${manager}">${person}</td>`;
+    const sectors = Object.keys(processedData).sort();
+    sectors.forEach(sector => {
+        const subdepts = Object.keys(processedData[sector]).sort();
+        subdepts.forEach(subdept => {
+            const deptId = subdept.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '');
+            // Department total row
+            const deptTotals = {};
+            weeks.forEach(item => deptTotals[item.weekNum] = { total: 0, statuses: new Set(), dates: {} });
+            let deptTotal = 0;
+            const persons = Object.keys(processedData[sector][subdept]).sort();
+            persons.forEach(person => {
                 weeks.forEach(item => {
-                    const data = processedData[dept][person].weeks[item.weekNum] || { total: 0, statuses: new Set(), dates: {} };
-                    const hours = data.total;
-                    const circles = Array.from(data.statuses).map(s => `<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background-color:${statusColors[s] || 'black'}; margin-left:2px;"></span>`).join('');
-                    const tooltip = Object.entries(data.dates).map(([date, dataObj]) => {
-                        let str = `${date}: ${dataObj.total.toFixed(2)}h`;
-                        if (dataObj.details.length > 0) {
-                            str += ' ' + dataObj.details.map(d => `${d.type}: ${d.comment} (${d.hours.toFixed(2)}h)`).join(', ');
-                        }
-                        return str;
-                    }).join('\n');
-                    html += `<td class="${hours === 0 ? 'zero' : ''}" data-tooltip="${tooltip}">${hours.toFixed(2)}${circles}</td>`;
+                    const data = processedData[sector][subdept][person].weeks[item.weekNum] || { total: 0, statuses: new Set(), dates: {} };
+                    deptTotals[item.weekNum].total += data.total;
+                    deptTotals[item.weekNum].statuses = new Set([...deptTotals[item.weekNum].statuses, ...data.statuses]);
+                    for (const [date, dataObj] of Object.entries(data.dates)) {
+                        if (!deptTotals[item.weekNum].dates[date]) deptTotals[item.weekNum].dates[date] = { total: 0, details: [] };
+                        deptTotals[item.weekNum].dates[date].total += dataObj.total;
+                        deptTotals[item.weekNum].dates[date].details.push(...dataObj.details);
+                    }
+                    deptTotal += data.total;
                 });
-                html += `<td class="${personTotal === 0 ? 'zero' : ''}">${personTotal.toFixed(2)}</td></tr>`;
-            }
+            });
+            weeks.forEach(item => {
+                overallTotals[item.weekNum].total += deptTotals[item.weekNum].total;
+                overallTotals[item.weekNum].statuses = new Set([...overallTotals[item.weekNum].statuses, ...deptTotals[item.weekNum].statuses]);
+                for (const [date, dataObj] of Object.entries(deptTotals[item.weekNum].dates)) {
+                    if (!overallTotals[item.weekNum].dates[date]) overallTotals[item.weekNum].dates[date] = { total: 0, details: [] };
+                    overallTotals[item.weekNum].dates[date].total += dataObj.total;
+                    overallTotals[item.weekNum].dates[date].details.push(...dataObj.details);
+                }
+                overallTotal += deptTotals[item.weekNum].total;
+            });
+            html += `<tr class="dept-header" onclick="toggleDept('${deptId}')"><td>${sector}</td><td><strong>${subdept}</strong> <span id="arrow-${deptId}">▼</span></td>`;
+            weeks.forEach(item => {
+                const total = deptTotals[item.weekNum].total;
+                const circles = Array.from(deptTotals[item.weekNum].statuses).map(s => `<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background-color:${statusColors[s] || 'black'}; margin-left:2px;"></span>`).join('');
+                const tooltip = Object.entries(deptTotals[item.weekNum].dates).map(([date, data]) => {
+                    let str = `${date}: ${data.total.toFixed(2)}h`;
+                    if (data.details.length > 0) {
+                        str += ' ' + data.details.map(d => `${d.type}: ${d.comment} (${d.hours.toFixed(2)}h)`).join(', ');
+                    }
+                    return str;
+                }).join('\n');
+                html += `<td class="${total === 0 ? 'zero' : ''}" data-tooltip="${tooltip}"><strong>${total.toFixed(2)}${circles}</strong></td>`;
+            });
+            html += `<td class="${deptTotal === 0 ? 'zero' : ''}"><strong>${deptTotal.toFixed(2)}</strong></td></tr>`;
+            // Individual persons
+            persons.forEach(person => {
+                let personTotal = 0;
+                weeks.forEach(item => {
+                    const data = processedData[sector][subdept][person].weeks[item.weekNum] || { total: 0, statuses: new Set(), dates: {} };
+                    personTotal += data.total;
+                });
+                if (personTotal > 0) {
+                    const manager = processedData[sector][subdept][person].manager;
+                    html += `<tr class="person-row ${deptId}" style="display: table-row;"><td></td><td data-tooltip="Manager: ${manager}">${person}</td>`;
+                    weeks.forEach(item => {
+                        const data = processedData[sector][subdept][person].weeks[item.weekNum] || { total: 0, statuses: new Set(), dates: {} };
+                        const hours = data.total;
+                        const circles = Array.from(data.statuses).map(s => `<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background-color:${statusColors[s] || 'black'}; margin-left:2px;"></span>`).join('');
+                        const tooltip = Object.entries(data.dates).map(([date, dataObj]) => {
+                            let str = `${date}: ${dataObj.total.toFixed(2)}h`;
+                            if (dataObj.details.length > 0) {
+                                str += ' ' + dataObj.details.map(d => `${d.type}: ${d.comment} (${d.hours.toFixed(2)}h)`).join(', ');
+                            }
+                            return str;
+                        }).join('\n');
+                        html += `<td class="${hours === 0 ? 'zero' : ''}" data-tooltip="${tooltip}">${hours.toFixed(2)}${circles}</td>`;
+                    });
+                    html += `<td class="${personTotal === 0 ? 'zero' : ''}">${personTotal.toFixed(2)}</td></tr>`;
+                }
+            });
         });
     });
-    html += `<tr class="overall-total"><td><strong>Overall Total</strong></td>`;
+    html += `<tr class="overall-total"><td colspan="2"><strong>Overall Total</strong></td>`;
     weeks.forEach(item => {
         const total = overallTotals[item.weekNum].total;
         const circles = Array.from(overallTotals[item.weekNum].statuses).map(s => `<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background-color:${statusColors[s] || 'black'}; margin-left:2px;"></span>`).join('');
@@ -449,9 +460,9 @@ function exportToExcel() {
         monthGroups[m]++;
     });
 
-    const header_row_1 = ['', '', '']; // Gaps for Dept/Person/Manager
+    const header_row_1 = ['', '', '', '']; // Gaps for Market Sector/Department/Person/Manager
     const merges = [];
-    let col_idx = 3; // Start after Dept/Person/Manager
+    let col_idx = 4; // Start after Market Sector/Department/Person/Manager
     for (const month in monthGroups) {
         header_row_1.push(month);
         const span = monthGroups[month];
@@ -467,7 +478,7 @@ function exportToExcel() {
     ws_data.push(header_row_1);
     row_levels.push(null);
 
-    const header_row_2 = ['Department', 'Person', 'Direct Manager'];
+    const header_row_2 = ['Market Sector', 'Department', 'Person', 'Direct Manager'];
     weeks.forEach(item => {
         const suffix = item.endDate.getFullYear() === 2025 ? ' (-1)' : '';
         const mm = (item.endDate.getMonth() + 1).toString().padStart(2, '0');
@@ -479,56 +490,62 @@ function exportToExcel() {
     row_levels.push(null);
 
     // 2. DATA ROWS
-    const depts = Object.keys(processedData).sort();
-    depts.forEach(dept => {
-        const dept_row = [dept, '', '']; // Dept name, empty person & manager
-        let dept_total_hours = 0;
-        weeks.forEach(item => {
-            let week_total = 0;
-            const persons = Object.keys(processedData[dept]);
-            persons.forEach(person => {
-                const data = processedData[dept][person].weeks[item.weekNum] || { total: 0 };
-                week_total += data.total;
-            });
-            dept_row.push(roundToHalf(week_total));
-            dept_total_hours += week_total;
-        });
-        dept_row.push(roundToHalf(dept_total_hours));
-        ws_data.push(dept_row);
-        row_levels.push({ level: 0 });
-
-        const persons = Object.keys(processedData[dept]).sort();
-        persons.forEach(person => {
-            let person_total = 0;
+    const sectors = Object.keys(processedData).sort();
+    sectors.forEach(sector => {
+        const subdepts = Object.keys(processedData[sector]).sort();
+        subdepts.forEach(subdept => {
+            const dept_row = [sector, subdept, '', '']; // Sector, Dept name, empty person & manager
+            let dept_total_hours = 0;
             weeks.forEach(item => {
-                const data = processedData[dept][person].weeks[item.weekNum] || { total: 0 };
-                person_total += data.total;
-            });
-
-            if (person_total > 0) {
-                const manager = processedData[dept][person].manager;
-                const person_row = [dept, person, manager]; // Fill down dept name
-                weeks.forEach(item => {
-                    const data = processedData[dept][person].weeks[item.weekNum] || { total: 0 };
-                    person_row.push(roundToHalf(data.total));
+                let week_total = 0;
+                const persons = Object.keys(processedData[sector][subdept]);
+                persons.forEach(person => {
+                    const data = processedData[sector][subdept][person].weeks[item.weekNum] || { total: 0 };
+                    week_total += data.total;
                 });
-                person_row.push(roundToHalf(person_total));
-                ws_data.push(person_row);
-                row_levels.push({ level: 1 });
-            }
+                dept_row.push(roundToHalf(week_total));
+                dept_total_hours += week_total;
+            });
+            dept_row.push(roundToHalf(dept_total_hours));
+            ws_data.push(dept_row);
+            row_levels.push({ level: 0 });
+
+            // Person rows
+            persons.forEach(person => {
+                let person_total = 0;
+                weeks.forEach(item => {
+                    const data = processedData[sector][subdept][person].weeks[item.weekNum] || { total: 0 };
+                    person_total += data.total;
+                });
+
+                if (person_total > 0) {
+                    const manager = processedData[sector][subdept][person].manager;
+                    const person_row = [sector, subdept, person, manager]; // Fill down sector and dept name
+                    weeks.forEach(item => {
+                        const data = processedData[sector][subdept][person].weeks[item.weekNum] || { total: 0 };
+                        person_row.push(roundToHalf(data.total));
+                    });
+                    person_row.push(roundToHalf(person_total));
+                    ws_data.push(person_row);
+                    row_levels.push({ level: 1 });
+                }
+            });
         });
     });
 
     // 3. OVERALL TOTAL ROW
-    const overall_total_row = ['Overall Total', '', ''];
+    const overall_total_row = ['Overall Total', '', '', ''];
     let overall_grand_total = 0;
     weeks.forEach(item => {
         let week_grand_total = 0;
-        depts.forEach(dept => {
-            const persons = Object.keys(processedData[dept]);
-            persons.forEach(person => {
-                const data = processedData[dept][person].weeks[item.weekNum] || { total: 0 };
-                week_grand_total += data.total;
+        sectors.forEach(sector => {
+            const subdepts = Object.keys(processedData[sector]);
+            subdepts.forEach(subdept => {
+                const persons = Object.keys(processedData[sector][subdept]);
+                persons.forEach(person => {
+                    const data = processedData[sector][subdept][person].weeks[item.weekNum] || { total: 0 };
+                    week_grand_total += data.total;
+                });
             });
         });
         overall_total_row.push(roundToHalf(week_grand_total));
