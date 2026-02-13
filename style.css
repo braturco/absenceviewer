@@ -20,20 +20,19 @@ th, td {
     border: 1px solid #ddd;
     padding: 4px;
     text-align: left;
+    /* Default width for all cells (week columns) */
+    min-width: 60px;
+    max-width: 80px;
+    width: 70px;
 }
 
+/* Override width for first 3 columns (hierarchy columns) */
 th:first-child, td:first-child,
 th:nth-child(2), td:nth-child(2),
 th:nth-child(3), td:nth-child(3) {
     min-width: 150px;
     max-width: 200px;
-}
-
-/* Week columns - consistent width */
-th:nth-child(n+4), td:nth-child(n+4) {
-    min-width: 60px;
-    max-width: 80px;
-    width: 70px;
+    width: auto;
 }
 
 th {
