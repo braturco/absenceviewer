@@ -524,12 +524,30 @@ function exportToExcel() {
 
     const wb = XLSX.utils.book_new();
 
+    // Enable cell styles in workbook
+    if (!wb.Workbook) wb.Workbook = {};
+    if (!wb.Workbook.Views) wb.Workbook.Views = [{}];
+
     // Define styles
-    const headerStyle = { fill: { fgColor: { rgb: "F2F2F2" } }, font: { bold: true }, alignment: { horizontal: "center", vertical: "center" } };
-    const deptStyle = { fill: { fgColor: { rgb: "D0D0D0" } }, font: { bold: true } };
-    const personEvenStyle = { fill: { fgColor: { rgb: "F0F0F0" } } };
-    const personOddStyle = { fill: { fgColor: { rgb: "FFFFFF" } } };
-    const totalStyle = { fill: { fgColor: { rgb: "888888" } }, font: { bold: true, color: { rgb: "FFFFFF" } } };
+    const headerStyle = {
+        fill: { patternType: "solid", fgColor: { rgb: "F2F2F2" } },
+        font: { bold: true },
+        alignment: { horizontal: "center", vertical: "center", wrapText: true }
+    };
+    const deptStyle = {
+        fill: { patternType: "solid", fgColor: { rgb: "D0D0D0" } },
+        font: { bold: true }
+    };
+    const personEvenStyle = {
+        fill: { patternType: "solid", fgColor: { rgb: "F0F0F0" } }
+    };
+    const personOddStyle = {
+        fill: { patternType: "solid", fgColor: { rgb: "FFFFFF" } }
+    };
+    const totalStyle = {
+        fill: { patternType: "solid", fgColor: { rgb: "888888" } },
+        font: { bold: true, color: { rgb: "FFFFFF" } }
+    };
 
     // Helper function to create a sheet for a market sector
     function createMarketSheet(marketSubSector, depts) {
@@ -650,24 +668,30 @@ function exportToExcel() {
             for (let C = range.s.c; C <= range.e.c; ++C) {
                 const cell_address = { c: C, r: R };
                 const cell_ref = XLSX.utils.encode_cell(cell_address);
-                if (!ws[cell_ref]) continue;
+
+                // Create cell if it doesn't exist
+                if (!ws[cell_ref]) {
+                    ws[cell_ref] = { t: 's', v: '' };
+                }
 
                 // Header rows
                 if (R === 0 || R === 1) {
                     ws[cell_ref].s = headerStyle;
                 }
-                // Dept rows (every row after headers that has level 1)
-                else if (R > 1 && ws_data[R][1] === '' && ws_data[R][2] === '') {
+                // Dept rows (check if it's a dept header row)
+                else if (R > 1 && ws_data[R] && ws_data[R][1] === '' && ws_data[R][2] === '') {
                     ws[cell_ref].s = deptStyle;
                 }
                 // Total row (last row)
                 else if (R === range.e.r) {
                     ws[cell_ref].s = totalStyle;
                 }
-                // Person rows (alternating)
+                // Person rows (alternating colors)
                 else if (R > 1) {
-                    const personIdx = R - 2 - depts.length; // Approximate person index
-                    ws[cell_ref].s = (R % 2 === 0) ? personEvenStyle : personOddStyle;
+                    // Use row index to determine alternating color
+                    // Count only person rows (those with manager and person filled)
+                    let isEven = (R % 2 === 0);
+                    ws[cell_ref].s = isEven ? personEvenStyle : personOddStyle;
                 }
             }
         }
@@ -685,7 +709,8 @@ function exportToExcel() {
         XLSX.utils.book_append_sheet(wb, ws, sheetName);
     });
 
-    XLSX.writeFile(wb, 'absence_report.xlsx');
+    // Write file with cell styles enabled
+    XLSX.writeFile(wb, 'absence_report.xlsx', { cellStyles: true, bookSST: false });
 }
 
 function getWeekNumber(date) {
