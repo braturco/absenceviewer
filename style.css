@@ -58,6 +58,13 @@ tr.dept-header {
     cursor: pointer;
 }
 
+tr.market-header {
+    background-color: #c0c0c0;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+
 tr.overall-total {
     background-color: #d0d0d0;
     font-weight: bold;
