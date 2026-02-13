@@ -48,7 +48,6 @@ function handleOrgFile(e) {
     reader.onload = function(e) {
         const csv = e.target.result;
         orgData = parseOrgCSV(csv);
-        console.log('Org data loaded:', orgData);
     };
     reader.readAsText(file);
 }
@@ -84,7 +83,18 @@ function handleHolidayFile(e) {
     reader.onload = function(e) {
         const csv = e.target.result;
         holidayData = parseHolidayCSV(csv);
-        console.log('Holiday data loaded:', holidayData);
+
+        // Show loaded holidays with detailed week calculations
+        console.log('\n=== HOLIDAY DATA LOADED ===');
+        console.log('Total weeks with holidays:', Object.keys(holidayData).length);
+        console.log('\nDetailed holiday data:');
+        Object.keys(holidayData).sort((a, b) => parseInt(a) - parseInt(b)).forEach(weekNum => {
+            console.log(`\nWeek ${weekNum}:`);
+            holidayData[weekNum].forEach(h => {
+                console.log(`  - Date: ${h.date}, Holiday: ${h.holiday}, Applies To: ${h.appliesTo}`);
+            });
+        });
+        console.log('===========================\n');
     };
     reader.readAsText(file);
 }
@@ -99,6 +109,9 @@ function parseHolidayCSV(csv) {
     const dateIndex = headers.indexOf(dateHeader);
     const holidayIndex = headers.indexOf(holidayHeader);
     const appliesToIndex = headers.indexOf(appliesToHeader);
+
+    console.log('Parsing holiday CSV...');
+    console.log('Headers found:', headers);
 
     if (dateIndex === -1 || holidayIndex === -1 || appliesToIndex === -1) {
         alert(`Holiday CSV must contain 'Date', 'Holiday', and 'Applies-To' columns.`);
@@ -117,6 +130,7 @@ function parseHolidayCSV(csv) {
             const date = new Date(dateStr + 'T12:00:00');
             if (!isNaN(date)) {
                 const weekNum = getWeekNumber(date);
+                console.log(`  Holiday "${holiday}" on ${dateStr} -> Week ${weekNum}`);
                 if (!mapping[weekNum]) {
                     mapping[weekNum] = [];
                 }
@@ -125,6 +139,8 @@ function parseHolidayCSV(csv) {
                     holiday: holiday,
                     appliesTo: appliesTo
                 });
+            } else {
+                console.log(`  Failed to parse date: ${dateStr}`);
             }
         }
     }
@@ -148,13 +164,11 @@ function handleFile(e) {
 function parseCSV(csv) {
     const lines = csv.split('\n');
     const headers = parseCSVLine(lines[0]).map(h => h.trim().toUpperCase());
-    console.log('Headers:', headers);
     const data = [];
     for (let i = 1; i < lines.length; i++) {
         if (!lines[i].trim()) continue;
         const values = parseCSVLine(lines[i]);
         if (values.length !== headers.length) {
-            console.log('Field count mismatch: headers', headers.length, 'values', values.length, 'row:', values);
             continue; // skip misaligned rows
         }
         const row = {};
@@ -169,15 +183,12 @@ function parseCSV(csv) {
                 const parsedDate = new Date(val + 'T12:00:00');
                 if (!isNaN(parsedDate)) {
                     val = parsedDate;
-                } else {
-                    console.log('Failed to parse date for', h, ':', val);
                 }
             }
             row[h] = val;
         });
         data.push(row);
     }
-    console.log('Sample parsed row:', data[0]);
     return data;
 }
 
@@ -208,11 +219,9 @@ function processData(data) {
     let processedCount = 0;
     data.forEach(row => {
         if (row['ABSENCE STATUS'] === 'Withdrawn' || row['ABSENCE STATUS'] === 'Denied') {
-            console.log('Skipping row due to status:', row['ABSENCE STATUS']);
             return;
         }
         if (!row['DEPARTMENT'] || !row['DEPARTMENT'].includes('-ENV-')) {
-            console.log('Skipping row due to department:', row['DEPARTMENT']);
             return;
         }
         const dept = row['DEPARTMENT'];
@@ -221,7 +230,6 @@ function processData(data) {
         const name = `${last}, ${first}`.trim();
         const manager = row['LINE MANAGER'] || '';
         if (!name) {
-            console.log('Skipping row due to empty name');
             return;
         }
         const deptId = dept.substring(0, 8);
@@ -244,13 +252,11 @@ function processData(data) {
         const start = row['ABSENCE START DATE'];
         const end = row['ABSENCE END DATE'];
         if (!start || !end) {
-            console.log('Skipping row due to missing dates');
             return;
         }
         const startDate = new Date(start);
         const endDate = new Date(end);
         if (isNaN(startDate) || isNaN(endDate)) {
-            console.log('Skipping row due to invalid dates:', start, end);
             return;
         }
         const normal = parseFloat(row['NORMAL WORKING HOURS']) || 40; // assume 40 if not
@@ -268,7 +274,6 @@ function processData(data) {
         const workingDaysInAbsence = days.filter(d => d.getDay() >= 1 && d.getDay() <= 5);
 
         if (workingDaysInAbsence.length === 0) {
-            console.log('Skipping absence with no working days:', name, start, end);
             return;
         }
 
@@ -308,9 +313,6 @@ function processData(data) {
 
         processedCount++;
     });
-    console.log('Processed ' + processedCount + ' absences');
-    console.log('Market Sub Sectors:', Object.keys(processedData));
-    console.log('All weeks:', Array.from(allWeeks).sort());
 }
 
 function generateReport() {
@@ -320,7 +322,6 @@ function generateReport() {
         return;
     }
     processData(rawData);
-    console.log('Selected start: ' + startDateInput.value);
     // Get the closest Friday on or after start date
     const startFriday = getClosestFriday(startDate, false);
     // Generate 52 weeks starting from startFriday
@@ -331,7 +332,12 @@ function generateReport() {
         const weekNum = getWeekNumber(endDate);
         weeks.push({ endDate, weekNum });
     }
-    console.log('weeks:', weeks);
+
+    console.log('\n=== REPORT GENERATION ===');
+    console.log('Holiday data available:', Object.keys(holidayData).length > 0);
+    console.log('Week numbers in report:', weeks.map(w => w.weekNum).slice(0, 10).join(', '), '...');
+    console.log('=========================\n');
+
     // Group weeks by month
     const monthGroups = {};
     weeks.forEach((item, idx) => {
@@ -347,8 +353,6 @@ function generateReport() {
     Object.keys(monthGroups).forEach(m => {
         monthGroups[m].sort((a, b) => a.idx - b.idx);
     });
-    console.log('Weeks:', weeks);
-    console.log('Month groups:', monthGroups);
     if (weeks.length === 0) {
         reportDiv.innerHTML = '<p>No data for the selected date range.</p>';
         return;
@@ -370,7 +374,6 @@ function generateReport() {
     html += '<tr>';
     Object.keys(monthGroups).forEach(m => {
         monthGroups[m].forEach(item => {
-            console.log('item.relative:', item.relative, 'item.week:', item.week);
             const suffix = item.endDate.getFullYear() === 2025 ? ' (-1)' : '';
             const mm = (item.endDate.getMonth() + 1).toString().padStart(2, '0');
             const dd = item.endDate.getDate().toString().padStart(2, '0');
@@ -383,6 +386,7 @@ function generateReport() {
                 holidayTooltip = holidayData[item.weekNum].map(h =>
                     `${h.date}: ${h.holiday} (${h.appliesTo})`
                 ).join('\n');
+                console.log(`Week ${item.weekNum} HAS HOLIDAY - applying class and tooltip`);
             }
 
             html += `<th class="week-header${holidayClass}" data-tooltip="${holidayTooltip}">Week ${item.absolute}${suffix}<br>(${mm}/${dd})</th>`;
@@ -549,41 +553,35 @@ function generateLongWeekendReport() {
         new Date(2026, 1, 16), // Feb 16
         new Date(2026, 1, 17)  // Feb 17
     ];
-    
+
     // Filter rawData to only include absences that overlap with these dates
     const filteredData = rawData.filter(row => {
         const startDate = new Date(row['ABSENCE START DATE']);
         const endDate = new Date(row['ABSENCE END DATE']);
-        
-        console.log('Checking row:', row['EMPLOYEE NAME'], 'start:', startDate, 'end:', endDate);
-        
+
         // Check if any of the long weekend dates fall within the absence period
         const overlaps = longWeekendDates.some(date => {
             const result = date >= startDate && date <= endDate;
-            console.log('  Checking date:', date, 'result:', result);
             return result;
         });
-        
-        console.log('  Overlaps:', overlaps);
+
         return overlaps;
     });
-    
-    console.log('Filtered data length:', filteredData.length);
-    
+
     if (filteredData.length === 0) {
         reportDiv.innerHTML = '<p>No absences found for the long weekend dates.</p>';
         return;
     }
-    
+
     // Process the filtered data
     processData(filteredData);
-    
+
     // Generate report with a fixed start date for the long weekend
     const startDate = new Date(2026, 1, 10); // Feb 10, 2026 - a Monday before the dates
     startDateInput.value = startDate.toISOString().split('T')[0];
-    
+
     generateReport();
-    
+
     // Update the title or add a note
     const titleDiv = document.createElement('div');
     titleDiv.innerHTML = '<h2>Long Weekend Impact Report (Feb 13, 15-17, 2026)</h2>';
