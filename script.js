@@ -154,7 +154,7 @@ function processData(data) {
             console.log('Skipping row due to status:', row['ABSENCE STATUS']);
             return;
         }
-        if (!row['DEPARTMENT'] || !row['DEPARTMENT'].includes('WSP-ENV')) {
+        if (!row['DEPARTMENT'] || !row['DEPARTMENT'].includes('-ENV-')) {
             console.log('Skipping row due to department:', row['DEPARTMENT']);
             return;
         }
