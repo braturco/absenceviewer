@@ -22,6 +22,13 @@ th, td {
     text-align: left;
 }
 
+th:first-child, td:first-child,
+th:nth-child(2), td:nth-child(2),
+th:nth-child(3), td:nth-child(3) {
+    min-width: 150px;
+    max-width: 200px;
+}
+
 th {
     background-color: #f2f2f2;
     position: sticky;
@@ -29,22 +36,47 @@ th {
     z-index: 2;
 }
 
-th:first-child, td:first-child {
+th:first-child, td:first-child,
+th:nth-child(2), td:nth-child(2),
+th:nth-child(3), td:nth-child(3) {
     position: sticky;
-    left: 0;
     background-color: white;
     z-index: 3;
 }
 
-tr.dept-header td:first-child {
+th:first-child, td:first-child {
+    left: 0;
+}
+
+th:nth-child(2), td:nth-child(2) {
+    left: 150px; /* Adjust based on first column width */
+}
+
+th:nth-child(3), td:nth-child(3) {
+    left: 300px; /* Adjust based on first two columns width */
+}
+
+tr.dept-header td:first-child,
+tr.dept-header td:nth-child(2),
+tr.dept-header td:nth-child(3) {
     background-color: #e0e0e0;
 }
 
-tr.overall-total td:first-child {
+tr.market-header td:first-child,
+tr.market-header td:nth-child(2),
+tr.market-header td:nth-child(3) {
+    background-color: #c0c0c0;
+}
+
+tr.overall-total td:first-child,
+tr.overall-total td:nth-child(2),
+tr.overall-total td:nth-child(3) {
     background-color: #d0d0d0;
 }
 
-tr:nth-child(even) td:first-child {
+tr:nth-child(even) td:first-child,
+tr:nth-child(even) td:nth-child(2),
+tr:nth-child(even) td:nth-child(3) {
     background-color: #f9f9f9;
 }
 

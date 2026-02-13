@@ -303,8 +303,9 @@ function generateReport() {
     });
     legendHtml += '</div>';
     // Build table
-    let html = legendHtml + '<table><thead>';
-    html += '<tr><th rowspan="2">Market Sub Sector / Department / Person</th>';
+    let html = '<div style="margin-bottom: 10px;"><button id="expandAllBtn">Expand All</button> <button id="collapseAllBtn">Collapse All</button></div>';
+    html += legendHtml + '<table><thead>';
+    html += '<tr><th rowspan="2">Market Sub Sector</th><th rowspan="2">Department</th><th rowspan="2">Person</th>';
     Object.keys(monthGroups).forEach(m => {
         html += `<th colspan="${monthGroups[m].length}">${m}</th>`;
     });
@@ -350,7 +351,7 @@ function generateReport() {
             });
         });
 
-        html += `<tr class="market-header" onclick="toggleMarket('${marketId}')"><td><strong>${marketSubSector}</strong> <span id="arrow-market-${marketId}">▼</span></td>`;
+        html += `<tr class="market-header" onclick="toggleMarket('${marketId}')"><td><strong>${marketSubSector}</strong> <span id="arrow-market-${marketId}">▼</span></td><td></td><td></td>`;
         weeks.forEach(item => {
             const total = marketTotals[item.weekNum].total;
             html += `<td class="${total === 0 ? 'zero' : ''}"><strong>${total.toFixed(2)}</strong></td>`;
@@ -387,7 +388,7 @@ function generateReport() {
                 }
                 overallTotal += deptTotals[item.weekNum].total;
             });
-            html += `<tr class="dept-header ${marketId}" onclick="toggleDept('${deptId}')"><td><strong>${dept}</strong> <span id="arrow-dept-${deptId}">▼</span></td>`;
+            html += `<tr class="dept-header ${marketId}" onclick="toggleDept('${deptId}')"><td></td><td><strong>${dept}</strong> <span id="arrow-dept-${deptId}">▼</span></td><td></td>`;
             weeks.forEach(item => {
                 const total = deptTotals[item.weekNum].total;
                 const circles = Array.from(deptTotals[item.weekNum].statuses).map(s => `<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background-color:${statusColors[s] || 'black'}; margin-left:2px;"></span>`).join('');
@@ -410,7 +411,7 @@ function generateReport() {
                 });
                 if (personTotal > 0) {
                     const manager = processedData[marketSubSector][dept].persons[person].manager;
-                    html += `<tr class="person-row ${marketId} ${deptId}" style="display: table-row;"><td data-tooltip="Manager: ${manager}">${person}</td>`;
+                    html += `<tr class="person-row ${marketId} ${deptId}" style="display: table-row;"><td></td><td></td><td data-tooltip="Manager: ${manager}">${person}</td>`;
                     weeks.forEach(item => {
                         const data = processedData[marketSubSector][dept].persons[person].weeks[item.weekNum] || { total: 0, statuses: new Set(), dates: {} };
                         const hours = data.total;
@@ -429,7 +430,7 @@ function generateReport() {
             });
         });
     });
-    html += `<tr class="overall-total"><td><strong>Overall Total</strong></td>`;
+    html += `<tr class="overall-total"><td colspan="3"><strong>Overall Total</strong></td>`;
     weeks.forEach(item => {
         const total = overallTotals[item.weekNum].total;
         const circles = Array.from(overallTotals[item.weekNum].statuses).map(s => `<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background-color:${statusColors[s] || 'black'}; margin-left:2px;"></span>`).join('');
@@ -461,6 +462,10 @@ function generateReport() {
         cell.addEventListener('mouseenter', showTooltip);
         cell.addEventListener('mouseleave', hideTooltip);
     });
+
+    // Setup expand/collapse all buttons
+    document.getElementById('expandAllBtn').addEventListener('click', expandAll);
+    document.getElementById('collapseAllBtn').addEventListener('click', collapseAll);
 }
 
 function generateLongWeekendReport() {
@@ -718,4 +723,26 @@ function showTooltip(e) {
 
 function hideTooltip() {
     document.getElementById('tooltip').style.display = 'none';
+}
+
+function expandAll() {
+    const allRows = document.querySelectorAll('.dept-header, .person-row');
+    allRows.forEach(row => {
+        row.style.display = 'table-row';
+    });
+    const allArrows = document.querySelectorAll('[id^="arrow-"]');
+    allArrows.forEach(arrow => {
+        arrow.textContent = '▼';
+    });
+}
+
+function collapseAll() {
+    const allRows = document.querySelectorAll('.dept-header, .person-row');
+    allRows.forEach(row => {
+        row.style.display = 'none';
+    });
+    const allArrows = document.querySelectorAll('[id^="arrow-market-"]');
+    allArrows.forEach(arrow => {
+        arrow.textContent = '▶';
+    });
 }
