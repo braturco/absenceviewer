@@ -36,25 +36,7 @@ th:first-child, td:first-child {
     z-index: 3;
 }
 
-th:nth-child(2), td:nth-child(2) {
-    position: sticky;
-    left: 150px;
-    background-color: white;
-    z-index: 3;
-}
-
-th:nth-child(3), td:nth-child(3) {
-    position: sticky;
-    left: 280px;
-    background-color: white;
-    z-index: 3;
-}
-
 tr.dept-header td:first-child {
-    background-color: #e0e0e0;
-}
-
-tr.dept-header td:nth-child(2) {
     background-color: #e0e0e0;
 }
 
@@ -62,23 +44,7 @@ tr.overall-total td:first-child {
     background-color: #d0d0d0;
 }
 
-tr.overall-total td:nth-child(2) {
-    background-color: #d0d0d0;
-}
-
-tr.overall-total td:nth-child(3) {
-    background-color: #d0d0d0;
-}
-
 tr:nth-child(even) td:first-child {
-    background-color: #f9f9f9;
-}
-
-tr:nth-child(even) td:nth-child(2) {
-    background-color: #f9f9f9;
-}
-
-tr:nth-child(even) td:nth-child(3) {
     background-color: #f9f9f9;
 }
 

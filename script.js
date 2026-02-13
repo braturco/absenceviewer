@@ -304,11 +304,7 @@ function generateReport() {
     legendHtml += '</div>';
     // Build table
     let html = legendHtml + '<table><thead>';
-<<<<<<< HEAD
-    html += '<tr><th rowspan="2">Market Sector</th><th rowspan="2">Department</th><th rowspan="2">Person</th>';
-=======
     html += '<tr><th rowspan="2">Market Sub Sector / Department / Person</th>';
->>>>>>> 80f132e3bc1f0d55bd9e1c0c59b0854cf7fae7b5
     Object.keys(monthGroups).forEach(m => {
         html += `<th colspan="${monthGroups[m].length}">${m}</th>`;
     });
@@ -391,11 +387,7 @@ function generateReport() {
                 }
                 overallTotal += deptTotals[item.weekNum].total;
             });
-<<<<<<< HEAD
-            html += `<tr class="dept-header" onclick="toggleDept('${deptId}')"><td>${sector}</td><td><strong>${subdept}</strong> <span id="arrow-${deptId}">▼</span></td><td></td>`;
-=======
             html += `<tr class="dept-header ${marketId}" onclick="toggleDept('${deptId}')"><td><strong>${dept}</strong> <span id="arrow-dept-${deptId}">▼</span></td>`;
->>>>>>> 80f132e3bc1f0d55bd9e1c0c59b0854cf7fae7b5
             weeks.forEach(item => {
                 const total = deptTotals[item.weekNum].total;
                 const circles = Array.from(deptTotals[item.weekNum].statuses).map(s => `<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background-color:${statusColors[s] || 'black'}; margin-left:2px;"></span>`).join('');
@@ -417,13 +409,8 @@ function generateReport() {
                     personTotal += data.total;
                 });
                 if (personTotal > 0) {
-<<<<<<< HEAD
-                    const manager = processedData[sector][subdept][person].manager;
-                    html += `<tr class="person-row ${deptId}" style="display: table-row;"><td>${sector}</td><td>${subdept}</td><td data-tooltip="Manager: ${manager}">${person}</td>`;
-=======
                     const manager = processedData[marketSubSector][dept].persons[person].manager;
                     html += `<tr class="person-row ${marketId} ${deptId}" style="display: table-row;"><td data-tooltip="Manager: ${manager}">${person}</td>`;
->>>>>>> 80f132e3bc1f0d55bd9e1c0c59b0854cf7fae7b5
                     weeks.forEach(item => {
                         const data = processedData[marketSubSector][dept].persons[person].weeks[item.weekNum] || { total: 0, statuses: new Set(), dates: {} };
                         const hours = data.total;
@@ -442,11 +429,7 @@ function generateReport() {
             });
         });
     });
-<<<<<<< HEAD
-    html += `<tr class="overall-total"><td colspan="3"><strong>Overall Total</strong></td>`;
-=======
     html += `<tr class="overall-total"><td><strong>Overall Total</strong></td>`;
->>>>>>> 80f132e3bc1f0d55bd9e1c0c59b0854cf7fae7b5
     weeks.forEach(item => {
         const total = overallTotals[item.weekNum].total;
         const circles = Array.from(overallTotals[item.weekNum].statuses).map(s => `<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background-color:${statusColors[s] || 'black'}; margin-left:2px;"></span>`).join('');
