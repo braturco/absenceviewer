@@ -35,6 +35,13 @@ th:nth-child(3), td:nth-child(3) {
     width: auto;
 }
 
+/* Month headers in first row should not constrain width */
+thead tr:first-child th[colspan] {
+    min-width: unset;
+    max-width: unset;
+    width: auto;
+}
+
 th {
     background-color: #f2f2f2;
     position: sticky;
@@ -82,9 +89,7 @@ tr.market-header {
     cursor: pointer;
 }
 
-tr.market-header td:first-child,
-tr.market-header td:nth-child(2),
-tr.market-header td:nth-child(3) {
+tr.market-header td {
     background-color: #a0a0a0;
 }
 
@@ -95,9 +100,7 @@ tr.dept-header {
     cursor: pointer;
 }
 
-tr.dept-header td:first-child,
-tr.dept-header td:nth-child(2),
-tr.dept-header td:nth-child(3) {
+tr.dept-header td {
     background-color: #d0d0d0;
 }
 

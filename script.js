@@ -351,7 +351,7 @@ function generateReport() {
             });
         });
 
-        html += `<tr class="market-header" onclick="toggleMarket('${marketId}')"><td><strong>${marketSubSector}</strong> <span id="arrow-market-${marketId}">▼</span></td><td></td><td></td>`;
+        html += `<tr class="market-header" onclick="toggleMarket('${marketId}')"><td colspan="2"><strong>${marketSubSector}</strong> <span id="arrow-market-${marketId}">▼</span></td><td></td>`;
         weeks.forEach(item => {
             const total = marketTotals[item.weekNum].total;
             html += `<td class="${total === 0 ? 'zero' : ''}"><strong>${total.toFixed(2)}</strong></td>`;
@@ -388,7 +388,7 @@ function generateReport() {
                 }
                 overallTotal += deptTotals[item.weekNum].total;
             });
-            html += `<tr class="dept-header ${marketId}" onclick="toggleDept('${deptId}')"><td></td><td><strong>${dept}</strong> <span id="arrow-dept-${deptId}">▼</span></td><td></td>`;
+            html += `<tr class="dept-header ${marketId}" onclick="toggleDept('${deptId}')"><td></td><td colspan="2"><strong>${dept}</strong> <span id="arrow-dept-${deptId}">▼</span></td>`;
             weeks.forEach(item => {
                 const total = deptTotals[item.weekNum].total;
                 const circles = Array.from(deptTotals[item.weekNum].statuses).map(s => `<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background-color:${statusColors[s] || 'black'}; margin-left:2px;"></span>`).join('');
