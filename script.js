@@ -516,44 +516,41 @@ function generateLongWeekendReport() {
 
 const roundToHalf = (value) => Math.round(value * 2) / 2;
 
-function exportToExcel() {
+async function exportToExcel() {
     if (weeks.length === 0) {
         alert('Please generate a report first.');
         return;
     }
 
-    const wb = XLSX.utils.book_new();
-
-    // Enable cell styles in workbook
-    if (!wb.Workbook) wb.Workbook = {};
-    if (!wb.Workbook.Views) wb.Workbook.Views = [{}];
+    const workbook = new ExcelJS.Workbook();
 
     // Define styles
     const headerStyle = {
-        fill: { patternType: "solid", fgColor: { rgb: "F2F2F2" } },
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F2F2' } },
         font: { bold: true },
-        alignment: { horizontal: "center", vertical: "center", wrapText: true }
+        alignment: { horizontal: 'center', vertical: 'middle', wrapText: true }
     };
     const deptStyle = {
-        fill: { patternType: "solid", fgColor: { rgb: "D0D0D0" } },
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD0D0D0' } },
         font: { bold: true }
     };
     const personEvenStyle = {
-        fill: { patternType: "solid", fgColor: { rgb: "F0F0F0" } }
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0F0F0' } }
     };
     const personOddStyle = {
-        fill: { patternType: "solid", fgColor: { rgb: "FFFFFF" } }
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFFFF' } }
     };
     const totalStyle = {
-        fill: { patternType: "solid", fgColor: { rgb: "888888" } },
-        font: { bold: true, color: { rgb: "FFFFFF" } }
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF888888' } },
+        font: { bold: true, color: { argb: 'FFFFFFFF' } }
     };
 
     // Helper function to create a sheet for a market sector
     function createMarketSheet(marketSubSector, depts) {
-        const ws_data = [];
+        const sheetName = marketSubSector.substring(0, 31).replace(/[:\\\/\?\*\[\]]/g, '_');
+        const worksheet = workbook.addWorksheet(sheetName);
 
-        // 1. HEADER ROWS
+        // 1. BUILD MONTH GROUPS
         const monthGroups = {};
         weeks.forEach((item, idx) => {
             const month = item.endDate.getMonth();
@@ -565,23 +562,30 @@ function exportToExcel() {
             monthGroups[m]++;
         });
 
-        const header_row_1 = ['', '', '', '']; // Gaps for Dept/Manager/Person
-        const merges = [];
-        let col_idx = 4;
+        // 2. ADD HEADER ROW 1 (Month headers)
+        const header_row_1 = ['', '', '', ''];
+        let col_idx = 5; // Start at column 5 (E) after Dept/Manager/Person/empty
         for (const month in monthGroups) {
             header_row_1.push(month);
             const span = monthGroups[month];
-            if (span > 1) {
-                merges.push({ s: { r: 0, c: col_idx }, e: { r: 0, c: col_idx + span - 1 } });
-            }
             for (let i = 1; i < span; i++) {
                 header_row_1.push('');
             }
-            col_idx += span;
         }
         header_row_1.push('Total');
-        ws_data.push(header_row_1);
+        worksheet.addRow(header_row_1);
 
+        // Merge month header cells
+        col_idx = 5;
+        for (const month in monthGroups) {
+            const span = monthGroups[month];
+            if (span > 1) {
+                worksheet.mergeCells(1, col_idx, 1, col_idx + span - 1);
+            }
+            col_idx += span;
+        }
+
+        // 3. ADD HEADER ROW 2 (Column names)
         const header_row_2 = ['Department', 'Line Manager', 'Person', ''];
         weeks.forEach(item => {
             const suffix = item.endDate.getFullYear() === 2025 ? ' (-1)' : '';
@@ -590,12 +594,12 @@ function exportToExcel() {
             header_row_2.push(`Week ${item.weekNum}${suffix}\n(${mm}/${dd})`);
         });
         header_row_2.push('');
-        ws_data.push(header_row_2);
+        worksheet.addRow(header_row_2);
 
-        // 2. DATA ROWS
-        let personRowIndex = 0;
+        // 4. ADD DATA ROWS
         depts.forEach(dept => {
-            const dept_row = [dept, '', '', '']; // Dept name, empty manager/person
+            // Department row
+            const dept_row = [dept, '', '', ''];
             let dept_total_hours = 0;
             weeks.forEach(item => {
                 let week_total = 0;
@@ -608,8 +612,9 @@ function exportToExcel() {
                 dept_total_hours += week_total;
             });
             dept_row.push(roundToHalf(dept_total_hours));
-            ws_data.push(dept_row);
+            worksheet.addRow(dept_row);
 
+            // Person rows
             const persons = Object.keys(processedData[marketSubSector][dept].persons).sort();
             persons.forEach(person => {
                 let person_total = 0;
@@ -620,19 +625,18 @@ function exportToExcel() {
 
                 if (person_total > 0) {
                     const manager = processedData[marketSubSector][dept].persons[person].manager;
-                    const person_row = [dept, manager, person, '']; // Dept, Manager, Person
+                    const person_row = [dept, manager, person, ''];
                     weeks.forEach(item => {
                         const data = processedData[marketSubSector][dept].persons[person].weeks[item.weekNum] || { total: 0 };
                         person_row.push(roundToHalf(data.total));
                     });
                     person_row.push(roundToHalf(person_total));
-                    ws_data.push(person_row);
-                    personRowIndex++;
+                    worksheet.addRow(person_row);
                 }
             });
         });
 
-        // 3. TOTAL ROW
+        // 5. ADD TOTAL ROW
         const total_row = ['Total', '', '', ''];
         let grand_total = 0;
         weeks.forEach(item => {
@@ -648,69 +652,65 @@ function exportToExcel() {
             grand_total += week_total;
         });
         total_row.push(roundToHalf(grand_total));
-        ws_data.push(total_row);
+        worksheet.addRow(total_row);
 
-        // 4. CREATE SHEET
-        const ws = XLSX.utils.aoa_to_sheet(ws_data);
-
-        if (!ws['!merges']) ws['!merges'] = [];
-        ws['!merges'].push(...merges);
-
-        const cols = header_row_1.length;
-        ws['!cols'] = [{ wch: 35 }, { wch: 25 }, { wch: 25 }, { wch: 5 }]; // Dept, Manager, Person, empty
-        for(let i=4; i<cols; i++) {
-            ws['!cols'].push({ wch: 12 });
+        // 6. SET COLUMN WIDTHS
+        worksheet.getColumn(1).width = 35; // Department
+        worksheet.getColumn(2).width = 25; // Line Manager
+        worksheet.getColumn(3).width = 25; // Person
+        worksheet.getColumn(4).width = 5;  // Empty
+        for (let i = 5; i <= 4 + weeks.length + 1; i++) {
+            worksheet.getColumn(i).width = 12; // Week columns
         }
 
-        // Apply styles
-        const range = XLSX.utils.decode_range(ws['!ref']);
-        for (let R = range.s.r; R <= range.e.r; ++R) {
-            for (let C = range.s.c; C <= range.e.c; ++C) {
-                const cell_address = { c: C, r: R };
-                const cell_ref = XLSX.utils.encode_cell(cell_address);
-
-                // Create cell if it doesn't exist
-                if (!ws[cell_ref]) {
-                    ws[cell_ref] = { t: 's', v: '' };
-                }
-
+        // 7. APPLY STYLES
+        worksheet.eachRow((row, rowNumber) => {
+            row.eachCell((cell, colNumber) => {
                 // Header rows
-                if (R === 0 || R === 1) {
-                    ws[cell_ref].s = headerStyle;
+                if (rowNumber === 1 || rowNumber === 2) {
+                    cell.style = headerStyle;
                 }
-                // Dept rows (check if it's a dept header row)
-                else if (R > 1 && ws_data[R] && ws_data[R][1] === '' && ws_data[R][2] === '') {
-                    ws[cell_ref].s = deptStyle;
+                // Dept rows (check if manager and person are empty)
+                else if (rowNumber > 2 && row.getCell(2).value === '' && row.getCell(3).value === '') {
+                    cell.style = deptStyle;
                 }
                 // Total row (last row)
-                else if (R === range.e.r) {
-                    ws[cell_ref].s = totalStyle;
+                else if (rowNumber === worksheet.rowCount) {
+                    cell.style = totalStyle;
                 }
-                // Person rows (alternating colors)
-                else if (R > 1) {
-                    // Use row index to determine alternating color
-                    // Count only person rows (those with manager and person filled)
-                    let isEven = (R % 2 === 0);
-                    ws[cell_ref].s = isEven ? personEvenStyle : personOddStyle;
+                // Person rows (alternating)
+                else if (rowNumber > 2) {
+                    cell.style = (rowNumber % 2 === 0) ? personEvenStyle : personOddStyle;
                 }
-            }
-        }
+            });
+        });
 
-        return ws;
+        // 8. ADD AUTO-FILTER TO ROW 2
+        const lastCol = worksheet.columnCount;
+        worksheet.autoFilter = {
+            from: { row: 2, column: 1 },
+            to: { row: 2, column: lastCol }
+        };
+
+        return worksheet;
     }
 
     // Create a sheet for each Market Sub Sector
     const marketSubSectors = Object.keys(processedData).sort();
     marketSubSectors.forEach(marketSubSector => {
         const depts = Object.keys(processedData[marketSubSector]).sort();
-        const ws = createMarketSheet(marketSubSector, depts);
-        // Sanitize sheet name (Excel has limits on sheet names)
-        const sheetName = marketSubSector.substring(0, 31).replace(/[:\\\/\?\*\[\]]/g, '_');
-        XLSX.utils.book_append_sheet(wb, ws, sheetName);
+        createMarketSheet(marketSubSector, depts);
     });
 
-    // Write file with cell styles enabled
-    XLSX.writeFile(wb, 'absence_report.xlsx', { cellStyles: true, bookSST: false });
+    // Write file
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'absence_report.xlsx';
+    a.click();
+    URL.revokeObjectURL(url);
 }
 
 function getWeekNumber(date) {
