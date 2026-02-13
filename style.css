@@ -141,6 +141,27 @@ tr.person-row:nth-child(even) td:nth-child(3) {
     color: #ccc;
 }
 
+/* Holiday week highlighting */
+th.holiday-week {
+    background-color: #FFE082 !important;
+    font-weight: bold;
+}
+
+td.holiday-week-cell {
+    background-color: #FFF9C4 !important;
+}
+
+/* Override for market and dept headers with holiday weeks */
+tr.market-header td.holiday-week-cell,
+tr.dept-header td.holiday-week-cell {
+    background-color: #FFE082 !important;
+}
+
+/* Override for overall total with holiday weeks */
+tr.overall-total td.holiday-week-cell {
+    background-color: #FFD54F !important;
+}
+
 #report {
     overflow: auto;
     max-height: 80vh;

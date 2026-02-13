@@ -7,7 +7,9 @@ const generateBtn = document.getElementById('generateBtn');
 const exportBtn = document.getElementById('exportBtn');
 
 const orgFileInput = document.getElementById('orgFileInput');
+const holidayFileInput = document.getElementById('holidayFileInput');
 let orgData = {}; // OfficeLocation_ID -> MarketSubSector_Name
+let holidayData = {}; // weekNum -> [{date, holiday, appliesTo}, ...]
 
 const statusColors = {
     'Scheduled': 'green',
@@ -35,6 +37,7 @@ function getClosestFriday(date, before = false) {
 
 fileInput.addEventListener('change', handleFile);
 orgFileInput.addEventListener('change', handleOrgFile);
+holidayFileInput.addEventListener('change', handleHolidayFile);
 generateBtn.addEventListener('click', generateReport);
 exportBtn.addEventListener('click', exportToExcel);
 
@@ -69,6 +72,60 @@ function parseOrgCSV(csv) {
         const values = parseCSVLine(lines[i]);
         if (values.length === headers.length) {
             mapping[values[idIndex]] = values[nameIndex];
+        }
+    }
+    return mapping;
+}
+
+function handleHolidayFile(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const csv = e.target.result;
+        holidayData = parseHolidayCSV(csv);
+        console.log('Holiday data loaded:', holidayData);
+    };
+    reader.readAsText(file);
+}
+
+function parseHolidayCSV(csv) {
+    const lines = csv.split('\n');
+    const headers = parseCSVLine(lines[0]).map(h => h.trim().toUpperCase());
+    const mapping = {};
+    const dateHeader = 'DATE';
+    const holidayHeader = 'HOLIDAY';
+    const appliesToHeader = 'APPLIES-TO';
+    const dateIndex = headers.indexOf(dateHeader);
+    const holidayIndex = headers.indexOf(holidayHeader);
+    const appliesToIndex = headers.indexOf(appliesToHeader);
+
+    if (dateIndex === -1 || holidayIndex === -1 || appliesToIndex === -1) {
+        alert(`Holiday CSV must contain 'Date', 'Holiday', and 'Applies-To' columns.`);
+        return {};
+    }
+
+    for (let i = 1; i < lines.length; i++) {
+        if (!lines[i].trim()) continue;
+        const values = parseCSVLine(lines[i]);
+        if (values.length >= headers.length) {
+            const dateStr = values[dateIndex].trim();
+            const holiday = values[holidayIndex].trim();
+            const appliesTo = values[appliesToIndex].trim();
+
+            // Parse date and get week number
+            const date = new Date(dateStr + 'T12:00:00');
+            if (!isNaN(date)) {
+                const weekNum = getWeekNumber(date);
+                if (!mapping[weekNum]) {
+                    mapping[weekNum] = [];
+                }
+                mapping[weekNum].push({
+                    date: dateStr,
+                    holiday: holiday,
+                    appliesTo: appliesTo
+                });
+            }
         }
     }
     return mapping;
@@ -317,7 +374,18 @@ function generateReport() {
             const suffix = item.endDate.getFullYear() === 2025 ? ' (-1)' : '';
             const mm = (item.endDate.getMonth() + 1).toString().padStart(2, '0');
             const dd = item.endDate.getDate().toString().padStart(2, '0');
-            html += `<th>Week ${item.absolute}${suffix}<br>(${mm}/${dd})</th>`;
+
+            // Check if this week has holidays
+            const hasHoliday = holidayData[item.weekNum] && holidayData[item.weekNum].length > 0;
+            const holidayClass = hasHoliday ? ' holiday-week' : '';
+            let holidayTooltip = '';
+            if (hasHoliday) {
+                holidayTooltip = holidayData[item.weekNum].map(h =>
+                    `${h.date}: ${h.holiday} (${h.appliesTo})`
+                ).join('\n');
+            }
+
+            html += `<th class="week-header${holidayClass}" data-tooltip="${holidayTooltip}">Week ${item.absolute}${suffix}<br>(${mm}/${dd})</th>`;
         });
     });
     html += '</tr></thead><tbody>';
@@ -354,7 +422,9 @@ function generateReport() {
         html += `<tr class="market-header" onclick="toggleMarket('${marketId}')"><td colspan="2"><strong>${marketSubSector}</strong> <span id="arrow-market-${marketId}">▼</span></td><td></td>`;
         weeks.forEach(item => {
             const total = marketTotals[item.weekNum].total;
-            html += `<td class="${total === 0 ? 'zero' : ''}"><strong>${total.toFixed(2)}</strong></td>`;
+            const hasHoliday = holidayData[item.weekNum] && holidayData[item.weekNum].length > 0;
+            const holidayClass = hasHoliday ? ' holiday-week-cell' : '';
+            html += `<td class="${total === 0 ? 'zero' : ''}${holidayClass}"><strong>${total.toFixed(2)}</strong></td>`;
         });
         html += `<td class="${marketTotal === 0 ? 'zero' : ''}"><strong>${marketTotal.toFixed(2)}</strong></td></tr>`;
 
@@ -391,6 +461,8 @@ function generateReport() {
             html += `<tr class="dept-header ${marketId}" onclick="toggleDept('${deptId}')"><td></td><td colspan="2"><strong>${dept}</strong> <span id="arrow-dept-${deptId}">▼</span></td>`;
             weeks.forEach(item => {
                 const total = deptTotals[item.weekNum].total;
+                const hasHoliday = holidayData[item.weekNum] && holidayData[item.weekNum].length > 0;
+                const holidayClass = hasHoliday ? ' holiday-week-cell' : '';
                 const circles = Array.from(deptTotals[item.weekNum].statuses).map(s => `<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background-color:${statusColors[s] || 'black'}; margin-left:2px;"></span>`).join('');
                 const tooltip = Object.entries(deptTotals[item.weekNum].dates).map(([date, data]) => {
                     let str = `${date}: ${data.total.toFixed(2)}h`;
@@ -399,7 +471,7 @@ function generateReport() {
                     }
                     return str;
                 }).join('\n');
-                html += `<td class="${total === 0 ? 'zero' : ''}" data-tooltip="${tooltip}"><strong>${total.toFixed(2)}${circles}</strong></td>`;
+                html += `<td class="${total === 0 ? 'zero' : ''}${holidayClass}" data-tooltip="${tooltip}"><strong>${total.toFixed(2)}${circles}</strong></td>`;
             });
             html += `<td class="${deptTotal === 0 ? 'zero' : ''}"><strong>${deptTotal.toFixed(2)}</strong></td></tr>`;
             // Individual persons
@@ -415,6 +487,8 @@ function generateReport() {
                     weeks.forEach(item => {
                         const data = processedData[marketSubSector][dept].persons[person].weeks[item.weekNum] || { total: 0, statuses: new Set(), dates: {} };
                         const hours = data.total;
+                        const hasHoliday = holidayData[item.weekNum] && holidayData[item.weekNum].length > 0;
+                        const holidayClass = hasHoliday ? ' holiday-week-cell' : '';
                         const circles = Array.from(data.statuses).map(s => `<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background-color:${statusColors[s] || 'black'}; margin-left:2px;"></span>`).join('');
                         const tooltip = Object.entries(data.dates).map(([date, dataObj]) => {
                             let str = `${date}: ${dataObj.total.toFixed(2)}h`;
@@ -423,7 +497,7 @@ function generateReport() {
                             }
                             return str;
                         }).join('\n');
-                        html += `<td class="${hours === 0 ? 'zero' : ''}" data-tooltip="${tooltip}">${hours.toFixed(2)}${circles}</td>`;
+                        html += `<td class="${hours === 0 ? 'zero' : ''}${holidayClass}" data-tooltip="${tooltip}">${hours.toFixed(2)}${circles}</td>`;
                     });
                     html += `<td class="${personTotal === 0 ? 'zero' : ''}">${personTotal.toFixed(2)}</td></tr>`;
                 }
@@ -433,6 +507,8 @@ function generateReport() {
     html += `<tr class="overall-total"><td colspan="3"><strong>Overall Total</strong></td>`;
     weeks.forEach(item => {
         const total = overallTotals[item.weekNum].total;
+        const hasHoliday = holidayData[item.weekNum] && holidayData[item.weekNum].length > 0;
+        const holidayClass = hasHoliday ? ' holiday-week-cell' : '';
         const circles = Array.from(overallTotals[item.weekNum].statuses).map(s => `<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background-color:${statusColors[s] || 'black'}; margin-left:2px;"></span>`).join('');
         const tooltip = Object.entries(overallTotals[item.weekNum].dates).map(([date, data]) => {
             let str = `${date}: ${data.total.toFixed(2)}h`;
@@ -441,7 +517,7 @@ function generateReport() {
             }
             return str;
         }).join('\n');
-        html += `<td class="${total === 0 ? 'zero' : ''}" data-tooltip="${tooltip}"><strong>${total.toFixed(2)}${circles}</strong></td>`;
+        html += `<td class="${total === 0 ? 'zero' : ''}${holidayClass}" data-tooltip="${tooltip}"><strong>${total.toFixed(2)}${circles}</strong></td>`;
     });
     html += `<td class="${overallTotal === 0 ? 'zero' : ''}"><strong>${overallTotal.toFixed(2)}</strong></td></tr>`;
     html += '</tbody></table>';
@@ -455,7 +531,7 @@ function generateReport() {
         tooltipDiv.className = 'custom-tooltip';
         document.body.appendChild(tooltipDiv);
     }
-    const cells = reportDiv.querySelectorAll('td[data-tooltip]');
+    const cells = reportDiv.querySelectorAll('td[data-tooltip], th[data-tooltip]');
     cells.forEach(cell => {
         cell.addEventListener('mouseenter', showTooltip);
         cell.addEventListener('mouseleave', hideTooltip);
