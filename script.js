@@ -392,11 +392,17 @@ function generateReport() {
                 holidayTooltip = holidayData[item.weekNum].map(h =>
                     `${h.date}: ${h.holiday} (${h.appliesTo})`
                 ).join('|||');
-                console.log(`Week ${item.weekNum} HAS HOLIDAY - applying class and tooltip:`, holidayTooltip);
+                console.log(`Week ${item.weekNum} HAS HOLIDAY:`);
+                console.log('  Original tooltip:', holidayTooltip);
+                console.log('  Original length:', holidayTooltip.length);
             }
 
             // Escape the tooltip text for HTML attribute
             const escapedTooltip = escapeHtml(holidayTooltip);
+            if (hasHoliday) {
+                console.log('  Escaped tooltip:', escapedTooltip);
+                console.log('  Escaped length:', escapedTooltip.length);
+            }
             html += `<th class="week-header${holidayClass}" data-tooltip="${escapedTooltip}">Week ${item.absolute}${suffix}<br>(${mm}/${dd})</th>`;
         });
     });
