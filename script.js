@@ -385,8 +385,8 @@ function generateReport() {
             if (hasHoliday) {
                 holidayTooltip = holidayData[item.weekNum].map(h =>
                     `${h.date}: ${h.holiday} (${h.appliesTo})`
-                ).join('\n');
-                console.log(`Week ${item.weekNum} HAS HOLIDAY - applying class and tooltip`);
+                ).join('|||');
+                console.log(`Week ${item.weekNum} HAS HOLIDAY - applying class and tooltip:`, holidayTooltip);
             }
 
             html += `<th class="week-header${holidayClass}" data-tooltip="${holidayTooltip}">Week ${item.absolute}${suffix}<br>(${mm}/${dd})</th>`;
@@ -864,7 +864,15 @@ function getWeekEndDate(weekNum) {
 
 function showTooltip(e) {
     const tooltip = document.getElementById('tooltip');
-    tooltip.textContent = e.target.dataset.tooltip;
+    const tooltipText = e.target.dataset.tooltip;
+
+    console.log('Showing tooltip for element:', e.target.textContent.substring(0, 20));
+    console.log('Tooltip data-tooltip value:', tooltipText);
+    console.log('Tooltip text length:', tooltipText ? tooltipText.length : 0);
+
+    // Convert ||| delimiter back to newlines for display
+    const displayText = tooltipText ? tooltipText.replace(/\|\|\|/g, '\n') : '';
+    tooltip.textContent = displayText;
     tooltip.style.display = 'block';
     const rect = e.target.getBoundingClientRect();
     const tooltipRect = tooltip.getBoundingClientRect();
