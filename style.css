@@ -36,11 +36,17 @@ th {
     z-index: 2;
 }
 
+th:first-child,
+th:nth-child(2),
+th:nth-child(3) {
+    background-color: #f2f2f2;
+    z-index: 4;
+}
+
 th:first-child, td:first-child,
 th:nth-child(2), td:nth-child(2),
 th:nth-child(3), td:nth-child(3) {
     position: sticky;
-    background-color: white;
     z-index: 3;
 }
 
@@ -56,50 +62,70 @@ th:nth-child(3), td:nth-child(3) {
     left: 300px; /* Adjust based on first two columns width */
 }
 
-tr.dept-header td:first-child,
-tr.dept-header td:nth-child(2),
-tr.dept-header td:nth-child(3) {
-    background-color: #e0e0e0;
+/* Default background for sticky columns */
+td:first-child,
+td:nth-child(2),
+td:nth-child(3) {
+    background-color: white;
+}
+
+/* Market Sub Sector header - Level 1 - Darkest */
+tr.market-header {
+    background-color: #a0a0a0;
+    font-weight: bold;
+    cursor: pointer;
 }
 
 tr.market-header td:first-child,
 tr.market-header td:nth-child(2),
 tr.market-header td:nth-child(3) {
-    background-color: #c0c0c0;
+    background-color: #a0a0a0;
+}
+
+/* Department header - Level 2 - Medium */
+tr.dept-header {
+    background-color: #d0d0d0;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+tr.dept-header td:first-child,
+tr.dept-header td:nth-child(2),
+tr.dept-header td:nth-child(3) {
+    background-color: #d0d0d0;
+}
+
+/* Overall total row */
+tr.overall-total {
+    background-color: #888888;
+    font-weight: bold;
 }
 
 tr.overall-total td:first-child,
 tr.overall-total td:nth-child(2),
 tr.overall-total td:nth-child(3) {
-    background-color: #d0d0d0;
+    background-color: #888888;
 }
 
-tr:nth-child(even) td:first-child,
-tr:nth-child(even) td:nth-child(2),
-tr:nth-child(even) td:nth-child(3) {
-    background-color: #f9f9f9;
+/* Employee rows - Light alternating colors */
+tr.person-row {
+    background-color: white;
 }
 
-tr:nth-child(even) {
-    background-color: #f9f9f9;
+tr.person-row:nth-child(even) {
+    background-color: #fafafa;
 }
 
-tr.dept-header {
-    background-color: #e0e0e0;
-    font-weight: bold;
-    cursor: pointer;
+tr.person-row td:first-child,
+tr.person-row td:nth-child(2),
+tr.person-row td:nth-child(3) {
+    background-color: inherit;
 }
 
-tr.market-header {
-    background-color: #c0c0c0;
-    font-weight: bold;
-    cursor: pointer;
-}
-
-
-tr.overall-total {
-    background-color: #d0d0d0;
-    font-weight: bold;
+tr.person-row:nth-child(even) td:first-child,
+tr.person-row:nth-child(even) td:nth-child(2),
+tr.person-row:nth-child(even) td:nth-child(3) {
+    background-color: #fafafa;
 }
 
 .zero {

@@ -445,10 +445,8 @@ function generateReport() {
     });
     html += `<td class="${overallTotal === 0 ? 'zero' : ''}"><strong>${overallTotal.toFixed(2)}</strong></td></tr>`;
     html += '</tbody></table>';
-    html += '<br><button id="longWeekendBtn">Show Long Weekend Impact (Feb 13,15-17)</button>';
     reportDiv.innerHTML = html;
     exportBtn.style.display = 'inline-block';
-    document.getElementById('longWeekendBtn').addEventListener('click', generateLongWeekendReport);
 
     // Setup custom tooltips
     if (!document.getElementById('tooltip')) {
@@ -666,17 +664,39 @@ function getWeekNumber(date) {
 }
 
 function toggleMarket(marketId) {
-    const rows = document.querySelectorAll(`.dept-header.${marketId}, .person-row.${marketId}`);
+    const deptRows = document.querySelectorAll(`.dept-header.${marketId}`);
+    const personRows = document.querySelectorAll(`.person-row.${marketId}`);
     const arrow = document.getElementById(`arrow-market-${marketId}`);
     let collapsed = false;
-    rows.forEach(row => {
-        if (row.style.display === 'none') {
+
+    // Check current state
+    if (deptRows.length > 0 && deptRows[0].style.display === 'none') {
+        // Expanding - show dept headers
+        deptRows.forEach(row => {
             row.style.display = 'table-row';
-        } else {
+        });
+        // For person rows, only show if their department is expanded
+        personRows.forEach(row => {
+            const deptClasses = Array.from(row.classList).filter(c => c !== 'person-row' && c !== marketId);
+            if (deptClasses.length > 0) {
+                const deptId = deptClasses[0];
+                const deptArrow = document.getElementById(`arrow-dept-${deptId}`);
+                if (deptArrow && deptArrow.textContent === '▼') {
+                    row.style.display = 'table-row';
+                }
+            }
+        });
+    } else {
+        // Collapsing - hide everything
+        deptRows.forEach(row => {
             row.style.display = 'none';
-            collapsed = true;
-        }
-    });
+        });
+        personRows.forEach(row => {
+            row.style.display = 'none';
+        });
+        collapsed = true;
+    }
+
     arrow.textContent = collapsed ? '▶' : '▼';
 }
 
@@ -726,10 +746,19 @@ function hideTooltip() {
 }
 
 function expandAll() {
-    const allRows = document.querySelectorAll('.dept-header, .person-row');
-    allRows.forEach(row => {
+    // Show all department headers and market headers
+    const deptHeaders = document.querySelectorAll('.dept-header');
+    deptHeaders.forEach(row => {
         row.style.display = 'table-row';
     });
+
+    // Show all person rows
+    const personRows = document.querySelectorAll('.person-row');
+    personRows.forEach(row => {
+        row.style.display = 'table-row';
+    });
+
+    // Set all arrows to expanded
     const allArrows = document.querySelectorAll('[id^="arrow-"]');
     allArrows.forEach(arrow => {
         arrow.textContent = '▼';
