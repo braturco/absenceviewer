@@ -523,56 +523,61 @@ function exportToExcel() {
     }
 
     const wb = XLSX.utils.book_new();
-    const ws_data = [];
-    const row_levels = [];
 
-    // 1. HEADER ROWS
-    const monthGroups = {};
-    weeks.forEach((item, idx) => {
-        const month = item.endDate.getMonth();
-        const year = item.endDate.getFullYear();
-        let monthName = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][month];
-        if (month === 4 && item.endDate.getDate() === 1) monthName = 'Apr';
-        const m = `${monthName} ${year}`;
-        if (!monthGroups[m]) monthGroups[m] = 0;
-        monthGroups[m]++;
-    });
+    // Define styles
+    const headerStyle = { fill: { fgColor: { rgb: "F2F2F2" } }, font: { bold: true }, alignment: { horizontal: "center", vertical: "center" } };
+    const deptStyle = { fill: { fgColor: { rgb: "D0D0D0" } }, font: { bold: true } };
+    const personEvenStyle = { fill: { fgColor: { rgb: "F0F0F0" } } };
+    const personOddStyle = { fill: { fgColor: { rgb: "FFFFFF" } } };
+    const totalStyle = { fill: { fgColor: { rgb: "888888" } }, font: { bold: true, color: { rgb: "FFFFFF" } } };
 
-    const header_row_1 = ['', '', '', '']; // Gaps for Market Sub Sector, Dept/Person/Manager
-    const merges = [];
-    let col_idx = 4; // Start after Market Sub Sector, Dept/Person/Manager
-    for (const month in monthGroups) {
-        header_row_1.push(month);
-        const span = monthGroups[month];
-        if (span > 1) {
-            merges.push({ s: { r: 0, c: col_idx }, e: { r: 0, c: col_idx + span - 1 } });
+    // Helper function to create a sheet for a market sector
+    function createMarketSheet(marketSubSector, depts) {
+        const ws_data = [];
+
+        // 1. HEADER ROWS
+        const monthGroups = {};
+        weeks.forEach((item, idx) => {
+            const month = item.endDate.getMonth();
+            const year = item.endDate.getFullYear();
+            let monthName = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][month];
+            if (month === 4 && item.endDate.getDate() === 1) monthName = 'Apr';
+            const m = `${monthName} ${year}`;
+            if (!monthGroups[m]) monthGroups[m] = 0;
+            monthGroups[m]++;
+        });
+
+        const header_row_1 = ['', '', '', '']; // Gaps for Dept/Manager/Person
+        const merges = [];
+        let col_idx = 4;
+        for (const month in monthGroups) {
+            header_row_1.push(month);
+            const span = monthGroups[month];
+            if (span > 1) {
+                merges.push({ s: { r: 0, c: col_idx }, e: { r: 0, c: col_idx + span - 1 } });
+            }
+            for (let i = 1; i < span; i++) {
+                header_row_1.push('');
+            }
+            col_idx += span;
         }
-        for (let i = 1; i < span; i++) {
-            header_row_1.push('');
-        }
-        col_idx += span;
-    }
-    header_row_1.push('Total');
-    ws_data.push(header_row_1);
-    row_levels.push(null);
+        header_row_1.push('Total');
+        ws_data.push(header_row_1);
 
-    const header_row_2 = ['Market Sub Sector', 'Department', 'Person', 'Line Manager'];
-    weeks.forEach(item => {
-        const suffix = item.endDate.getFullYear() === 2025 ? ' (-1)' : '';
-        const mm = (item.endDate.getMonth() + 1).toString().padStart(2, '0');
-        const dd = item.endDate.getDate().toString().padStart(2, '0');
-        header_row_2.push(`Week ${item.weekNum}${suffix}\n(${mm}/${dd})`);
-    });
-    header_row_2.push('');
-    ws_data.push(header_row_2);
-    row_levels.push(null);
+        const header_row_2 = ['Department', 'Line Manager', 'Person', ''];
+        weeks.forEach(item => {
+            const suffix = item.endDate.getFullYear() === 2025 ? ' (-1)' : '';
+            const mm = (item.endDate.getMonth() + 1).toString().padStart(2, '0');
+            const dd = item.endDate.getDate().toString().padStart(2, '0');
+            header_row_2.push(`Week ${item.weekNum}${suffix}\n(${mm}/${dd})`);
+        });
+        header_row_2.push('');
+        ws_data.push(header_row_2);
 
-    // 2. DATA ROWS
-    const marketSubSectors = Object.keys(processedData).sort();
-    marketSubSectors.forEach(marketSubSector => {
-        const depts = Object.keys(processedData[marketSubSector]).sort();
+        // 2. DATA ROWS
+        let personRowIndex = 0;
         depts.forEach(dept => {
-            const dept_row = [marketSubSector, dept, '', '']; // Market Sub Sector, Dept name, empty person & manager
+            const dept_row = [dept, '', '', '']; // Dept name, empty manager/person
             let dept_total_hours = 0;
             weeks.forEach(item => {
                 let week_total = 0;
@@ -586,7 +591,6 @@ function exportToExcel() {
             });
             dept_row.push(roundToHalf(dept_total_hours));
             ws_data.push(dept_row);
-            row_levels.push({ level: 1 });
 
             const persons = Object.keys(processedData[marketSubSector][dept].persons).sort();
             persons.forEach(person => {
@@ -598,56 +602,89 @@ function exportToExcel() {
 
                 if (person_total > 0) {
                     const manager = processedData[marketSubSector][dept].persons[person].manager;
-                    const person_row = [marketSubSector, dept, person, manager]; // Fill down info
+                    const person_row = [dept, manager, person, '']; // Dept, Manager, Person
                     weeks.forEach(item => {
                         const data = processedData[marketSubSector][dept].persons[person].weeks[item.weekNum] || { total: 0 };
                         person_row.push(roundToHalf(data.total));
                     });
                     person_row.push(roundToHalf(person_total));
                     ws_data.push(person_row);
-                    row_levels.push({ level: 2 });
+                    personRowIndex++;
                 }
             });
         });
-    });
 
-    // 3. OVERALL TOTAL ROW
-    const overall_total_row = ['Overall Total', '', '', ''];
-    let overall_grand_total = 0;
-    weeks.forEach(item => {
-        let week_grand_total = 0;
-        marketSubSectors.forEach(marketSubSector => {
-            const depts = Object.keys(processedData[marketSubSector]).sort();
+        // 3. TOTAL ROW
+        const total_row = ['Total', '', '', ''];
+        let grand_total = 0;
+        weeks.forEach(item => {
+            let week_total = 0;
             depts.forEach(dept => {
                 const persons = Object.keys(processedData[marketSubSector][dept].persons);
                 persons.forEach(person => {
                     const data = processedData[marketSubSector][dept].persons[person].weeks[item.weekNum] || { total: 0 };
-                    week_grand_total += data.total;
+                    week_total += data.total;
                 });
             });
+            total_row.push(roundToHalf(week_total));
+            grand_total += week_total;
         });
-        overall_total_row.push(roundToHalf(week_grand_total));
-        overall_grand_total += week_grand_total;
-    });
-    overall_total_row.push(roundToHalf(overall_grand_total));
-    ws_data.push(overall_total_row);
-    row_levels.push(null);
+        total_row.push(roundToHalf(grand_total));
+        ws_data.push(total_row);
 
-    // 4. CREATE SHEET AND ADD TO BOOK
-    const ws = XLSX.utils.aoa_to_sheet(ws_data);
-    
-    if (!ws['!merges']) ws['!merges'] = [];
-    ws['!merges'].push(...merges);
+        // 4. CREATE SHEET
+        const ws = XLSX.utils.aoa_to_sheet(ws_data);
 
-    ws['!rows'] = row_levels;
+        if (!ws['!merges']) ws['!merges'] = [];
+        ws['!merges'].push(...merges);
 
-    const cols = Object.keys(header_row_1).length;
-    ws['!cols'] = [{ wch: 30 }, { wch: 30 }, { wch: 20 }, { wch: 20 }]; // Market Sub Sector, Dept, Person, and Manager columns
-    for(let i=4; i<cols; i++) {
-        ws['!cols'].push({ wch: 15 });
+        const cols = header_row_1.length;
+        ws['!cols'] = [{ wch: 35 }, { wch: 25 }, { wch: 25 }, { wch: 5 }]; // Dept, Manager, Person, empty
+        for(let i=4; i<cols; i++) {
+            ws['!cols'].push({ wch: 12 });
+        }
+
+        // Apply styles
+        const range = XLSX.utils.decode_range(ws['!ref']);
+        for (let R = range.s.r; R <= range.e.r; ++R) {
+            for (let C = range.s.c; C <= range.e.c; ++C) {
+                const cell_address = { c: C, r: R };
+                const cell_ref = XLSX.utils.encode_cell(cell_address);
+                if (!ws[cell_ref]) continue;
+
+                // Header rows
+                if (R === 0 || R === 1) {
+                    ws[cell_ref].s = headerStyle;
+                }
+                // Dept rows (every row after headers that has level 1)
+                else if (R > 1 && ws_data[R][1] === '' && ws_data[R][2] === '') {
+                    ws[cell_ref].s = deptStyle;
+                }
+                // Total row (last row)
+                else if (R === range.e.r) {
+                    ws[cell_ref].s = totalStyle;
+                }
+                // Person rows (alternating)
+                else if (R > 1) {
+                    const personIdx = R - 2 - depts.length; // Approximate person index
+                    ws[cell_ref].s = (R % 2 === 0) ? personEvenStyle : personOddStyle;
+                }
+            }
+        }
+
+        return ws;
     }
 
-    XLSX.utils.book_append_sheet(wb, ws, 'Absence Report');
+    // Create a sheet for each Market Sub Sector
+    const marketSubSectors = Object.keys(processedData).sort();
+    marketSubSectors.forEach(marketSubSector => {
+        const depts = Object.keys(processedData[marketSubSector]).sort();
+        const ws = createMarketSheet(marketSubSector, depts);
+        // Sanitize sheet name (Excel has limits on sheet names)
+        const sheetName = marketSubSector.substring(0, 31).replace(/[:\\\/\?\*\[\]]/g, '_');
+        XLSX.utils.book_append_sheet(wb, ws, sheetName);
+    });
+
     XLSX.writeFile(wb, 'absence_report.xlsx');
 }
 
