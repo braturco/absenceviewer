@@ -536,6 +536,20 @@ function generateReport() {
         document.body.appendChild(tooltipDiv);
     }
     const cells = reportDiv.querySelectorAll('td[data-tooltip], th[data-tooltip]');
+    const thCells = reportDiv.querySelectorAll('th[data-tooltip]');
+    const tdCells = reportDiv.querySelectorAll('td[data-tooltip]');
+
+    console.log('Setting up tooltips:');
+    console.log('  Total cells with data-tooltip:', cells.length);
+    console.log('  TH elements with data-tooltip:', thCells.length);
+    console.log('  TD elements with data-tooltip:', tdCells.length);
+
+    // Log a sample TH element to see its data-tooltip value
+    if (thCells.length > 0) {
+        console.log('  Sample TH data-tooltip:', thCells[0].dataset.tooltip);
+        console.log('  Sample TH text:', thCells[0].textContent.substring(0, 20));
+    }
+
     cells.forEach(cell => {
         cell.addEventListener('mouseenter', showTooltip);
         cell.addEventListener('mouseleave', hideTooltip);
@@ -866,9 +880,12 @@ function showTooltip(e) {
     const tooltip = document.getElementById('tooltip');
     const tooltipText = e.target.dataset.tooltip;
 
-    console.log('Showing tooltip for element:', e.target.textContent.substring(0, 20));
-    console.log('Tooltip data-tooltip value:', tooltipText);
-    console.log('Tooltip text length:', tooltipText ? tooltipText.length : 0);
+    // Only log debug info for TH elements (week headers), not TD (employee/dept cells)
+    if (e.target.tagName === 'TH') {
+        console.log('Showing tooltip for TH element:', e.target.textContent.substring(0, 20));
+        console.log('  Tooltip data-tooltip value:', tooltipText);
+        console.log('  Tooltip text length:', tooltipText ? tooltipText.length : 0);
+    }
 
     // Convert ||| delimiter back to newlines for display
     const displayText = tooltipText ? tooltipText.replace(/\|\|\|/g, '\n') : '';
