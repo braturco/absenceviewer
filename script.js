@@ -211,6 +211,12 @@ function parseCSVLine(line) {
     return result.map(s => s.trim());
 }
 
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
 function processData(data) {
     // data is array of objects
     // create departments map: MarketSubSector -> dept -> person -> weeks: {week: hours}
@@ -389,7 +395,9 @@ function generateReport() {
                 console.log(`Week ${item.weekNum} HAS HOLIDAY - applying class and tooltip:`, holidayTooltip);
             }
 
-            html += `<th class="week-header${holidayClass}" data-tooltip="${holidayTooltip}">Week ${item.absolute}${suffix}<br>(${mm}/${dd})</th>`;
+            // Escape the tooltip text for HTML attribute
+            const escapedTooltip = escapeHtml(holidayTooltip);
+            html += `<th class="week-header${holidayClass}" data-tooltip="${escapedTooltip}">Week ${item.absolute}${suffix}<br>(${mm}/${dd})</th>`;
         });
     });
     html += '</tr></thead><tbody>';
