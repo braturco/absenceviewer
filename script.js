@@ -6,6 +6,9 @@ const endDateInput = document.getElementById('endDate');
 const generateBtn = document.getElementById('generateBtn');
 const exportBtn = document.getElementById('exportBtn');
 
+const orgFileInput = document.getElementById('orgFileInput');
+let orgData = {}; // OfficeLocation_ID -> MarketSubSector_Name
+
 const statusColors = {
     'Scheduled': 'green',
     'Awaiting approval': 'yellow',
@@ -31,8 +34,46 @@ function getClosestFriday(date, before = false) {
 }
 
 fileInput.addEventListener('change', handleFile);
+orgFileInput.addEventListener('change', handleOrgFile);
 generateBtn.addEventListener('click', generateReport);
 exportBtn.addEventListener('click', exportToExcel);
+
+function handleOrgFile(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const csv = e.target.result;
+        orgData = parseOrgCSV(csv);
+        console.log('Org data loaded:', orgData);
+    };
+    reader.readAsText(file);
+}
+
+function parseOrgCSV(csv) {
+    const lines = csv.split('\n');
+    const headers = parseCSVLine(lines[0]).map(h => h.trim().toUpperCase());
+    const mapping = {};
+    const idHeader = 'OFFICELOCATION_ID';
+    const nameHeader = 'MARKETSUBSECTOR_NAME';
+    const idIndex = headers.indexOf(idHeader);
+    const nameIndex = headers.indexOf(nameHeader);
+
+    if (idIndex === -1 || nameIndex === -1) {
+        alert(`Org CSV must contain '${idHeader}' and '${nameHeader}' columns.`);
+        return {};
+    }
+
+    for (let i = 1; i < lines.length; i++) {
+        if (!lines[i].trim()) continue;
+        const values = parseCSVLine(lines[i]);
+        if (values.length === headers.length) {
+            mapping[values[idIndex]] = values[nameIndex];
+        }
+    }
+    return mapping;
+}
+
 
 function handleFile(e) {
     const file = e.target.files[0];
@@ -126,11 +167,21 @@ function processData(data) {
             console.log('Skipping row due to empty name');
             return;
         }
-        if (!processedData[dept]) processedData[dept] = {};
-        if (!processedData[dept][name]) processedData[dept][name] = {
-            weeks: {},
-            manager: manager
-        };
+        const deptId = dept.substring(0, 8);
+        const marketSubSector = orgData[deptId] || 'Unknown';
+
+        if (!processedData[dept]) {
+            processedData[dept] = {
+                marketSubSector: marketSubSector,
+                persons: {}
+            };
+        }
+        if (!processedData[dept].persons[name]) {
+            processedData[dept].persons[name] = {
+                weeks: {},
+                manager: manager
+            };
+        }
         const start = row['ABSENCE START DATE'];
         const end = row['ABSENCE END DATE'];
         if (!start || !end) {
@@ -179,17 +230,17 @@ function processData(data) {
         workingDaysInAbsence.forEach(day => {
             const week = getWeekNumber(day);
             allWeeks.add(week);
-            if (!processedData[dept][name].weeks[week]) {
-                processedData[dept][name].weeks[week] = { total: 0, statuses: new Set(), dates: {} };
+            if (!processedData[dept].persons[name].weeks[week]) {
+                processedData[dept].persons[name].weeks[week] = { total: 0, statuses: new Set(), dates: {} };
             }
-            processedData[dept][name].weeks[week].total += hoursPerWorkDay;
-            processedData[dept][name].weeks[week].statuses.add(row['ABSENCE STATUS']);
+            processedData[dept].persons[name].weeks[week].total += hoursPerWorkDay;
+            processedData[dept].persons[name].weeks[week].statuses.add(row['ABSENCE STATUS']);
             const dateKey = day.toISOString().split('T')[0];
-            if (!processedData[dept][name].weeks[week].dates[dateKey]) {
-                processedData[dept][name].weeks[week].dates[dateKey] = { total: 0, details: [] };
+            if (!processedData[dept].persons[name].weeks[week].dates[dateKey]) {
+                processedData[dept].persons[name].weeks[week].dates[dateKey] = { total: 0, details: [] };
             }
-            processedData[dept][name].weeks[week].dates[dateKey].total += hoursPerWorkDay;
-            processedData[dept][name].weeks[week].dates[dateKey].details.push({
+            processedData[dept].persons[name].weeks[week].dates[dateKey].total += hoursPerWorkDay;
+            processedData[dept].persons[name].weeks[week].dates[dateKey].details.push({
                 type: absenceType,
                 comment: absenceComment,
                 hours: hoursPerWorkDay
@@ -278,10 +329,10 @@ function generateReport() {
         const deptTotals = {};
         weeks.forEach(item => deptTotals[item.weekNum] = { total: 0, statuses: new Set(), dates: {} });
         let deptTotal = 0;
-        const persons = Object.keys(processedData[dept]).sort();
+        const persons = Object.keys(processedData[dept].persons).sort();
         persons.forEach(person => {
             weeks.forEach(item => {
-                const data = processedData[dept][person].weeks[item.weekNum] || { total: 0, statuses: new Set(), dates: {} };
+                const data = processedData[dept].persons[person].weeks[item.weekNum] || { total: 0, statuses: new Set(), dates: {} };
                 deptTotals[item.weekNum].total += data.total;
                 deptTotals[item.weekNum].statuses = new Set([...deptTotals[item.weekNum].statuses, ...data.statuses]);
                 for (const [date, dataObj] of Object.entries(data.dates)) {
@@ -302,7 +353,8 @@ function generateReport() {
             }
             overallTotal += deptTotals[item.weekNum].total;
         });
-        html += `<tr class="dept-header" onclick="toggleDept('${deptId}')"><td><strong>${dept}</strong> <span id="arrow-${deptId}">▼</span></td>`;
+        const marketSubSector = processedData[dept].marketSubSector;
+        html += `<tr class="dept-header" onclick="toggleDept('${deptId}')"><td><strong>${marketSubSector} - ${dept}</strong> <span id="arrow-${deptId}">▼</span></td>`;
         weeks.forEach(item => {
             const total = deptTotals[item.weekNum].total;
             const circles = Array.from(deptTotals[item.weekNum].statuses).map(s => `<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background-color:${statusColors[s] || 'black'}; margin-left:2px;"></span>`).join('');
@@ -320,14 +372,14 @@ function generateReport() {
         persons.forEach(person => {
             let personTotal = 0;
             weeks.forEach(item => {
-                const data = processedData[dept][person].weeks[item.weekNum] || { total: 0, statuses: new Set(), dates: {} };
+                const data = processedData[dept].persons[person].weeks[item.weekNum] || { total: 0, statuses: new Set(), dates: {} };
                 personTotal += data.total;
             });
             if (personTotal > 0) {
-                const manager = processedData[dept][person].manager;
+                const manager = processedData[dept].persons[person].manager;
                 html += `<tr class="person-row ${deptId}" style="display: table-row;"><td data-tooltip="Manager: ${manager}">${person}</td>`;
                 weeks.forEach(item => {
-                    const data = processedData[dept][person].weeks[item.weekNum] || { total: 0, statuses: new Set(), dates: {} };
+                    const data = processedData[dept].persons[person].weeks[item.weekNum] || { total: 0, statuses: new Set(), dates: {} };
                     const hours = data.total;
                     const circles = Array.from(data.statuses).map(s => `<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background-color:${statusColors[s] || 'black'}; margin-left:2px;"></span>`).join('');
                     const tooltip = Object.entries(data.dates).map(([date, dataObj]) => {
@@ -449,9 +501,9 @@ function exportToExcel() {
         monthGroups[m]++;
     });
 
-    const header_row_1 = ['', '', '']; // Gaps for Dept/Person/Manager
+    const header_row_1 = ['', '', '', '']; // Gaps for Market Sub Sector, Dept/Person/Manager
     const merges = [];
-    let col_idx = 3; // Start after Dept/Person/Manager
+    let col_idx = 4; // Start after Market Sub Sector, Dept/Person/Manager
     for (const month in monthGroups) {
         header_row_1.push(month);
         const span = monthGroups[month];
@@ -467,7 +519,7 @@ function exportToExcel() {
     ws_data.push(header_row_1);
     row_levels.push(null);
 
-    const header_row_2 = ['Department', 'Person', 'Line Manager'];
+    const header_row_2 = ['Market Sub Sector', 'Department', 'Person', 'Line Manager'];
     weeks.forEach(item => {
         const suffix = item.endDate.getFullYear() === 2025 ? ' (-1)' : '';
         const mm = (item.endDate.getMonth() + 1).toString().padStart(2, '0');
@@ -481,13 +533,14 @@ function exportToExcel() {
     // 2. DATA ROWS
     const depts = Object.keys(processedData).sort();
     depts.forEach(dept => {
-        const dept_row = [dept, '', '']; // Dept name, empty person & manager
+        const marketSubSector = processedData[dept].marketSubSector;
+        const dept_row = [marketSubSector, dept, '', '']; // Market Sub Sector, Dept name, empty person & manager
         let dept_total_hours = 0;
         weeks.forEach(item => {
             let week_total = 0;
-            const persons = Object.keys(processedData[dept]);
+            const persons = Object.keys(processedData[dept].persons);
             persons.forEach(person => {
-                const data = processedData[dept][person].weeks[item.weekNum] || { total: 0 };
+                const data = processedData[dept].persons[person].weeks[item.weekNum] || { total: 0 };
                 week_total += data.total;
             });
             dept_row.push(roundToHalf(week_total));
@@ -497,19 +550,20 @@ function exportToExcel() {
         ws_data.push(dept_row);
         row_levels.push({ level: 0 });
 
-        const persons = Object.keys(processedData[dept]).sort();
+        const persons = Object.keys(processedData[dept].persons).sort();
         persons.forEach(person => {
             let person_total = 0;
             weeks.forEach(item => {
-                const data = processedData[dept][person].weeks[item.weekNum] || { total: 0 };
+                const data = processedData[dept].persons[person].weeks[item.weekNum] || { total: 0 };
                 person_total += data.total;
             });
 
             if (person_total > 0) {
-                const manager = processedData[dept][person].manager;
-                const person_row = [dept, person, manager]; // Fill down dept name
+                const marketSubSector = processedData[dept].marketSubSector;
+                const manager = processedData[dept].persons[person].manager;
+                const person_row = [marketSubSector, dept, person, manager]; // Fill down info
                 weeks.forEach(item => {
-                    const data = processedData[dept][person].weeks[item.weekNum] || { total: 0 };
+                    const data = processedData[dept].persons[person].weeks[item.weekNum] || { total: 0 };
                     person_row.push(roundToHalf(data.total));
                 });
                 person_row.push(roundToHalf(person_total));
@@ -520,14 +574,14 @@ function exportToExcel() {
     });
 
     // 3. OVERALL TOTAL ROW
-    const overall_total_row = ['Overall Total', '', ''];
+    const overall_total_row = ['Overall Total', '', '', ''];
     let overall_grand_total = 0;
     weeks.forEach(item => {
         let week_grand_total = 0;
         depts.forEach(dept => {
-            const persons = Object.keys(processedData[dept]);
+            const persons = Object.keys(processedData[dept].persons);
             persons.forEach(person => {
-                const data = processedData[dept][person].weeks[item.weekNum] || { total: 0 };
+                const data = processedData[dept].persons[person].weeks[item.weekNum] || { total: 0 };
                 week_grand_total += data.total;
             });
         });
@@ -547,8 +601,8 @@ function exportToExcel() {
     ws['!rows'] = row_levels;
 
     const cols = Object.keys(header_row_1).length;
-    ws['!cols'] = [{ wch: 30 }, { wch: 20 }, { wch: 20 }]; // Dept, Person, and Manager columns
-    for(let i=3; i<cols; i++) {
+    ws['!cols'] = [{ wch: 30 }, { wch: 30 }, { wch: 20 }, { wch: 20 }]; // Market Sub Sector, Dept, Person, and Manager columns
+    for(let i=4; i<cols; i++) {
         ws['!cols'].push({ wch: 15 });
     }
 
