@@ -11,6 +11,7 @@ h1 {
 
 table {
     border-collapse: collapse;
+    table-layout: fixed;
     width: 100%;
     margin-top: 20px;
     font-size: 11px;
@@ -20,33 +21,31 @@ th, td {
     border: 1px solid #ddd;
     padding: 4px;
     text-align: left;
-    /* Default width for all cells (week columns) */
-    min-width: 60px;
-    max-width: 80px;
+    /* Fixed width for week columns */
     width: 70px;
 }
 
 /* Override width for first 3 columns (hierarchy columns) */
-th:first-child, td:first-child,
-th:nth-child(2), td:nth-child(2),
+th:first-child, td:first-child {
+    width: 150px;
+}
+
+th:nth-child(2), td:nth-child(2) {
+    width: 150px;
+}
+
 th:nth-child(3), td:nth-child(3) {
-    min-width: 150px;
-    max-width: 200px;
-    width: auto;
+    width: 150px;
 }
 
-/* Month headers in first row should not constrain width */
+/* Month headers automatically sized as colspan × 70px */
 thead tr:first-child th[colspan] {
-    min-width: unset;
-    max-width: unset;
-    width: auto;
+    padding: 4px;
 }
 
-/* Ensure all week header columns have consistent width */
+/* Week headers use fixed 70px width */
 thead tr:nth-child(2) th:not(:first-child):not(:nth-child(2)):not(:nth-child(3)) {
-    min-width: 60px !important;
-    max-width: 80px !important;
-    width: 70px !important;
+    width: 70px;
 }
 
 th {
