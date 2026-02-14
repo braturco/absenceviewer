@@ -25,15 +25,18 @@ th, td {
 }
 
 /* Override width for first 3 columns (hierarchy columns) */
-th:first-child, td:first-child {
+thead tr:first-child th:first-child,
+tbody tr td:first-child {
     width: 150px;
 }
 
-th:nth-child(2), td:nth-child(2) {
+thead tr:first-child th:nth-child(2),
+tbody tr td:nth-child(2) {
     width: 150px;
 }
 
-th:nth-child(3), td:nth-child(3) {
+thead tr:first-child th:nth-child(3),
+tbody tr td:nth-child(3) {
     width: 150px;
 }
 
@@ -54,9 +57,9 @@ th {
     z-index: 2;
 }
 
-th:first-child,
-th:nth-child(2),
-th:nth-child(3) {
+thead tr:first-child th:first-child,
+thead tr:first-child th:nth-child(2),
+thead tr:first-child th:nth-child(3) {
     background-color: #f2f2f2;
     z-index: 4;
 }
