@@ -42,6 +42,13 @@ thead tr:first-child th[colspan] {
     width: auto;
 }
 
+/* Ensure all week header columns have consistent width */
+thead tr:nth-child(2) th:not(:first-child):not(:nth-child(2)):not(:nth-child(3)) {
+    min-width: 60px !important;
+    max-width: 80px !important;
+    width: 70px !important;
+}
+
 th {
     background-color: #f2f2f2;
     position: sticky;
