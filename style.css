@@ -195,3 +195,35 @@ tr.overall-total td.holiday-week-cell {
     box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
     border-radius: 4px;
 }
+
+/* Daily report column width */
+th.day-header,
+td.day-cell {
+    width: 80px;
+    min-width: 80px;
+}
+
+/* Weekend column highlighting */
+th.weekend-header {
+    background-color: #e0e0e0 !important;
+}
+
+td.weekend-cell {
+    background-color: #f5f5f5 !important;
+}
+
+/* Holiday date highlighting (different from weekend) */
+td.holiday-day-cell {
+    background-color: #FFF9C4 !important;
+}
+
+/* Override for market and dept headers with weekend days */
+tr.market-header td.weekend-cell,
+tr.dept-header td.weekend-cell {
+    background-color: #e0e0e0 !important;
+}
+
+/* Override for overall total with weekend days */
+tr.overall-total td.weekend-cell {
+    background-color: #d0d0d0 !important;
+}

@@ -4,7 +4,9 @@ const controlsDiv = document.getElementById('controls');
 const startDateInput = document.getElementById('startDate');
 const endDateInput = document.getElementById('endDate');
 const generateBtn = document.getElementById('generateBtn');
+const generateDailyBtn = document.getElementById('generateDailyBtn');
 const exportBtn = document.getElementById('exportBtn');
+const exportDailyBtn = document.getElementById('exportDailyBtn');
 
 const orgFileInput = document.getElementById('orgFileInput');
 const holidayFileInput = document.getElementById('holidayFileInput');
@@ -39,7 +41,9 @@ fileInput.addEventListener('change', handleFile);
 orgFileInput.addEventListener('change', handleOrgFile);
 holidayFileInput.addEventListener('change', handleHolidayFile);
 generateBtn.addEventListener('click', generateReport);
+generateDailyBtn.addEventListener('click', generateDailyReport);
 exportBtn.addEventListener('click', exportToExcel);
+exportDailyBtn.addEventListener('click', exportDailyToExcel);
 
 function handleOrgFile(e) {
     const file = e.target.files[0];
@@ -637,6 +641,318 @@ function generateLongWeekendReport() {
 
 const roundToHalf = (value) => Math.round(value * 2) / 2;
 
+// Helper function to get daily data for a specific person and date
+function getDailyDataForPerson(marketSubSector, dept, person, dateKey) {
+    const personData = processedData[marketSubSector]?.[dept]?.persons?.[person];
+    if (!personData) return { total: 0, details: [], statuses: new Set() };
+
+    // Search through all weeks for this specific date
+    for (let weekNum in personData.weeks) {
+        const weekData = personData.weeks[weekNum];
+        if (weekData.dates[dateKey]) {
+            return {
+                total: weekData.dates[dateKey].total,
+                details: weekData.dates[dateKey].details,
+                statuses: weekData.statuses
+            };
+        }
+    }
+
+    return { total: 0, details: [], statuses: new Set() };
+}
+
+// Check if a specific date is a holiday
+function isHolidayDate(dateKey) {
+    const date = new Date(dateKey + 'T12:00:00');
+    const weekNum = getWeekNumber(date);
+
+    if (!holidayData[weekNum]) return false;
+
+    return holidayData[weekNum].some(h => h.date === dateKey);
+}
+
+// Generate day-by-day absence report
+function generateDailyReport() {
+    const startDate = new Date(startDateInput.value);
+    const endDate = new Date(endDateInput.value);
+
+    // Validation
+    if (!startDate || isNaN(startDate.getTime())) {
+        alert('Please select a valid start date for daily report');
+        return;
+    }
+
+    if (!endDate || isNaN(endDate.getTime())) {
+        alert('Please select a valid end date for daily report');
+        return;
+    }
+
+    if (startDate > endDate) {
+        alert('Start date must be before or equal to end date');
+        return;
+    }
+
+    const daysDiff = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
+
+    if (daysDiff > 14) {
+        alert('Daily report is limited to 14 days. Please select a shorter date range.');
+        return;
+    }
+
+    processData(rawData); // Reprocess data like weekly report does
+
+    // Generate array of dates
+    const dates = [];
+    const current = new Date(startDate);
+    while (current <= endDate) {
+        dates.push(new Date(current));
+        current.setDate(current.getDate() + 1);
+    }
+
+    console.log('\n=== DAILY REPORT GENERATION ===');
+    console.log('Date range:', startDate.toISOString().split('T')[0], 'to', endDate.toISOString().split('T')[0]);
+    console.log('Number of days:', dates.length);
+    console.log('================================\n');
+
+    // Group dates by month
+    const monthGroups = {};
+    dates.forEach((date, idx) => {
+        const month = date.getMonth();
+        const year = date.getFullYear();
+        const monthName = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][month];
+        const m = `${monthName} ${year}`;
+        if (!monthGroups[m]) monthGroups[m] = [];
+        monthGroups[m].push({ date, idx });
+    });
+
+    if (dates.length === 0) {
+        reportDiv.innerHTML = '<p>No data for the selected date range.</p>';
+        return;
+    }
+
+    // Build legend
+    let legendHtml = '<div id="legend"><strong>Status Legend:</strong> ';
+    Object.keys(statusColors).forEach(s => {
+        legendHtml += `<span style="margin-right:10px;">${s}: <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background-color:${statusColors[s]}; vertical-align:middle;"></span></span>`;
+    });
+    legendHtml += '</div>';
+
+    // Build table
+    let html = '<div style="margin-bottom: 10px;"><button id="expandAllBtn">Expand All</button> <button id="collapseAllBtn">Collapse All</button></div>';
+
+    // Calculate total table width: 3 hierarchy cols (150px each) + day cols (80px each) + 1 total col (80px)
+    const tableWidth = (3 * 150) + (dates.length * 80) + 80;
+    html += legendHtml + `<table style="width: ${tableWidth}px;">`;
+
+    // Add colgroup to explicitly define column structure
+    html += '<colgroup>';
+    // First 3 hierarchy columns
+    html += '<col style="width: 150px;">';  // Market Sub Sector
+    html += '<col style="width: 150px;">';  // Department
+    html += '<col style="width: 150px;">';  // Person
+    // Day columns
+    dates.forEach(() => {
+        html += '<col style="width: 80px;">';
+    });
+    // Total column
+    html += '<col style="width: 80px;">';
+    html += '</colgroup>';
+
+    html += '<thead>';
+    html += '<tr><th rowspan="2">Market Sub Sector</th><th rowspan="2">Department</th><th rowspan="2">Person</th>';
+
+    // Month header row
+    Object.keys(monthGroups).forEach(m => {
+        html += `<th colspan="${monthGroups[m].length}">${m}</th>`;
+    });
+    html += '<th rowspan="2">Total</th></tr>';
+
+    // Day header row
+    html += '<tr>';
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    dates.forEach(date => {
+        const dayOfWeek = dayNames[date.getDay()];
+        const monthDay = `${date.getMonth() + 1}/${date.getDate()}`;
+        const header = `${dayOfWeek} ${monthDay}`;
+        const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+        const weekendClass = isWeekend ? ' weekend-header' : '';
+        const dateKey = date.toISOString().split('T')[0];
+        const isHoliday = isHolidayDate(dateKey);
+        const holidayClass = isHoliday ? ' holiday-week' : '';
+        html += `<th class="day-header${weekendClass}${holidayClass}">${header}</th>`;
+    });
+    html += '</tr>';
+    html += '</thead><tbody>';
+
+    // Calculate date keys for quick lookup
+    const dateKeys = dates.map(d => d.toISOString().split('T')[0]);
+
+    // Build rows by Market Sub Sector → Department → Person
+    const markets = Object.keys(processedData).sort();
+
+    // Calculate overall totals per day
+    const overallDayTotals = {};
+    dateKeys.forEach(dateKey => {
+        overallDayTotals[dateKey] = 0;
+    });
+
+    markets.forEach(market => {
+        const depts = Object.keys(processedData[market]).sort();
+
+        // Calculate market-level totals per day
+        const marketDayTotals = {};
+        dateKeys.forEach(dateKey => {
+            marketDayTotals[dateKey] = 0;
+        });
+
+        // First, calculate market totals
+        depts.forEach(dept => {
+            const persons = Object.keys(processedData[market][dept].persons).sort();
+            persons.forEach(person => {
+                dateKeys.forEach(dateKey => {
+                    const dayData = getDailyDataForPerson(market, dept, person, dateKey);
+                    marketDayTotals[dateKey] += dayData.total;
+                });
+            });
+        });
+
+        // Add to overall totals
+        dateKeys.forEach(dateKey => {
+            overallDayTotals[dateKey] += marketDayTotals[dateKey];
+        });
+
+        // Market header row
+        const marketTotal = Object.values(marketDayTotals).reduce((sum, val) => sum + val, 0);
+        html += `<tr class="market-header" data-market="${market}">`;
+        html += `<td>${market}</td><td></td><td></td>`;
+        dateKeys.forEach(dateKey => {
+            const total = marketDayTotals[dateKey];
+            const displayVal = total === 0 ? '<span class="zero">0</span>' : roundToHalf(total).toFixed(1);
+            const date = dates[dateKeys.indexOf(dateKey)];
+            const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+            const weekendClass = isWeekend ? ' weekend-cell' : '';
+            const isHoliday = isHolidayDate(dateKey);
+            const holidayClass = isHoliday ? ' holiday-day-cell' : '';
+            html += `<td class="day-cell${weekendClass}${holidayClass}">${displayVal}</td>`;
+        });
+        html += `<td>${roundToHalf(marketTotal).toFixed(1)}</td>`;
+        html += '</tr>';
+
+        // Department rows
+        depts.forEach(dept => {
+            const persons = Object.keys(processedData[market][dept].persons).sort();
+
+            // Calculate dept-level totals per day
+            const deptDayTotals = {};
+            dateKeys.forEach(dateKey => {
+                deptDayTotals[dateKey] = 0;
+            });
+
+            persons.forEach(person => {
+                dateKeys.forEach(dateKey => {
+                    const dayData = getDailyDataForPerson(market, dept, person, dateKey);
+                    deptDayTotals[dateKey] += dayData.total;
+                });
+            });
+
+            // Department header row
+            const deptTotal = Object.values(deptDayTotals).reduce((sum, val) => sum + val, 0);
+            html += `<tr class="dept-header" data-market="${market}" data-dept="${dept}">`;
+            html += `<td></td><td>${dept}</td><td></td>`;
+            dateKeys.forEach(dateKey => {
+                const total = deptDayTotals[dateKey];
+                const displayVal = total === 0 ? '<span class="zero">0</span>' : roundToHalf(total).toFixed(1);
+                const date = dates[dateKeys.indexOf(dateKey)];
+                const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+                const weekendClass = isWeekend ? ' weekend-cell' : '';
+                const isHoliday = isHolidayDate(dateKey);
+                const holidayClass = isHoliday ? ' holiday-day-cell' : '';
+                html += `<td class="day-cell${weekendClass}${holidayClass}">${displayVal}</td>`;
+            });
+            html += `<td>${roundToHalf(deptTotal).toFixed(1)}</td>`;
+            html += '</tr>';
+
+            // Person rows
+            persons.forEach(person => {
+                const personTotal = dateKeys.reduce((sum, dateKey) => {
+                    const dayData = getDailyDataForPerson(market, dept, person, dateKey);
+                    return sum + dayData.total;
+                }, 0);
+
+                html += `<tr class="person-row" data-market="${market}" data-dept="${dept}">`;
+                const manager = processedData[market][dept].persons[person].manager || '';
+                html += `<td></td><td></td><td>${person} (${manager})</td>`;
+
+                dateKeys.forEach(dateKey => {
+                    const dayData = getDailyDataForPerson(market, dept, person, dateKey);
+                    const total = dayData.total;
+                    const displayVal = total === 0 ? '<span class="zero">0</span>' : roundToHalf(total).toFixed(1);
+
+                    // Build tooltip
+                    let tooltip = '';
+                    if (dayData.details.length > 0) {
+                        tooltip = `${dateKey}: ${roundToHalf(total).toFixed(2)}h\n`;
+                        dayData.details.forEach(d => {
+                            tooltip += `${d.type}: ${d.comment} (${roundToHalf(d.hours).toFixed(2)}h)\n`;
+                        });
+                    }
+
+                    // Status circles
+                    let statusCircles = '';
+                    if (dayData.statuses && dayData.statuses.size > 0) {
+                        dayData.statuses.forEach(status => {
+                            const color = statusColors[status] || '#999';
+                            statusCircles += `<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background-color:${color}; margin-left:2px; vertical-align:middle;"></span>`;
+                        });
+                    }
+
+                    const date = dates[dateKeys.indexOf(dateKey)];
+                    const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+                    const weekendClass = isWeekend ? ' weekend-cell' : '';
+                    const isHoliday = isHolidayDate(dateKey);
+                    const holidayClass = isHoliday ? ' holiday-day-cell' : '';
+
+                    html += `<td class="day-cell${weekendClass}${holidayClass}"${tooltip ? ` data-tooltip="${tooltip}"` : ''}>${displayVal}${statusCircles}</td>`;
+                });
+
+                html += `<td>${roundToHalf(personTotal).toFixed(1)}</td>`;
+                html += '</tr>';
+            });
+        });
+    });
+
+    // Overall total row
+    const overallTotal = Object.values(overallDayTotals).reduce((sum, val) => sum + val, 0);
+    html += `<tr class="overall-total">`;
+    html += `<td colspan="3">Overall Total</td>`;
+    dateKeys.forEach(dateKey => {
+        const total = overallDayTotals[dateKey];
+        const displayVal = total === 0 ? '<span class="zero">0</span>' : roundToHalf(total).toFixed(1);
+        const date = dates[dateKeys.indexOf(dateKey)];
+        const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+        const weekendClass = isWeekend ? ' weekend-cell' : '';
+        const isHoliday = isHolidayDate(dateKey);
+        const holidayClass = isHoliday ? ' holiday-day-cell' : '';
+        html += `<td class="day-cell${weekendClass}${holidayClass}">${displayVal}</td>`;
+    });
+    html += `<td>${roundToHalf(overallTotal).toFixed(1)}</td>`;
+    html += '</tr>';
+
+    html += '</tbody></table>';
+
+    reportDiv.innerHTML = html;
+
+    // Setup custom tooltips
+    setupCustomTooltips(reportDiv);
+
+    // Setup expand/collapse functionality
+    document.getElementById('expandAllBtn').addEventListener('click', expandAll);
+    document.getElementById('collapseAllBtn').addEventListener('click', collapseAll);
+
+    // Show export button
+    exportDailyBtn.style.display = 'inline-block';
+}
+
 async function exportToExcel() {
     if (weeks.length === 0) {
         alert('Please generate a report first.');
@@ -830,6 +1146,343 @@ async function exportToExcel() {
     const a = document.createElement('a');
     a.href = url;
     a.download = 'absence_report.xlsx';
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+async function exportDailyToExcel() {
+    // Get dates from the daily report
+    const startDate = new Date(startDateInput.value);
+    const endDate = new Date(endDateInput.value);
+
+    if (!startDate || !endDate) {
+        alert('Please generate a daily report first.');
+        return;
+    }
+
+    // Generate array of dates
+    const dates = [];
+    const current = new Date(startDate);
+    while (current <= endDate) {
+        dates.push(new Date(current));
+        current.setDate(current.getDate() + 1);
+    }
+
+    if (dates.length === 0) {
+        alert('Please generate a daily report first.');
+        return;
+    }
+
+    const workbook = new ExcelJS.Workbook();
+
+    // Define styles
+    const headerStyle = {
+        font: { bold: true, color: { argb: 'FFFFFFFF' } },
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } },
+        alignment: { horizontal: 'center', vertical: 'middle', wrapText: true },
+        border: {
+            top: { style: 'thin' },
+            left: { style: 'thin' },
+            bottom: { style: 'thin' },
+            right: { style: 'thin' }
+        }
+    };
+
+    const deptStyle = {
+        font: { bold: true },
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD0CECE' } },
+        alignment: { horizontal: 'left', vertical: 'middle' },
+        border: {
+            top: { style: 'thin' },
+            left: { style: 'thin' },
+            bottom: { style: 'thin' },
+            right: { style: 'thin' }
+        }
+    };
+
+    const personEvenStyle = {
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFFFF' } },
+        alignment: { horizontal: 'left', vertical: 'middle' },
+        border: {
+            top: { style: 'thin' },
+            left: { style: 'thin' },
+            bottom: { style: 'thin' },
+            right: { style: 'thin' }
+        }
+    };
+
+    const personOddStyle = {
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F2F2' } },
+        alignment: { horizontal: 'left', vertical: 'middle' },
+        border: {
+            top: { style: 'thin' },
+            left: { style: 'thin' },
+            bottom: { style: 'thin' },
+            right: { style: 'thin' }
+        }
+    };
+
+    const totalStyle = {
+        font: { bold: true, color: { argb: 'FFFFFFFF' } },
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF70AD47' } },
+        alignment: { horizontal: 'left', vertical: 'middle' },
+        border: {
+            top: { style: 'thin' },
+            left: { style: 'thin' },
+            bottom: { style: 'thin' },
+            right: { style: 'thin' }
+        }
+    };
+
+    const weekendStyle = {
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E0E0' } },
+        alignment: { horizontal: 'center', vertical: 'middle' },
+        border: {
+            top: { style: 'thin' },
+            left: { style: 'thin' },
+            bottom: { style: 'thin' },
+            right: { style: 'thin' }
+        }
+    };
+
+    const holidayStyle = {
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF9C4' } },
+        alignment: { horizontal: 'center', vertical: 'middle' },
+        border: {
+            top: { style: 'thin' },
+            left: { style: 'thin' },
+            bottom: { style: 'thin' },
+            right: { style: 'thin' }
+        }
+    };
+
+    // Group dates by month for header row
+    const monthGroups = {};
+    dates.forEach((date, idx) => {
+        const month = date.getMonth();
+        const year = date.getFullYear();
+        const monthName = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][month];
+        const m = `${monthName} ${year}`;
+        if (!monthGroups[m]) monthGroups[m] = 0;
+        monthGroups[m]++;
+    });
+
+    const dateKeys = dates.map(d => d.toISOString().split('T')[0]);
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+    // Create sheet for each Market Sub Sector
+    function createMarketSheet(marketSubSector, depts) {
+        const worksheet = workbook.addWorksheet(marketSubSector.substring(0, 31)); // Excel sheet name limit
+
+        // 1. ADD LEGEND
+        worksheet.addRow([`Status Legend:`]);
+        let legendText = '';
+        Object.keys(statusColors).forEach(s => {
+            legendText += `${s}, `;
+        });
+        worksheet.addRow([legendText.slice(0, -2)]);
+        worksheet.addRow([]); // Empty row
+
+        // 2. ADD HEADER ROW 1 (Month groupings)
+        const header_row_1 = ['Department', 'Line Manager', 'Person', ''];
+        for (const month in monthGroups) {
+            header_row_1.push(month);
+            const span = monthGroups[month];
+            for (let i = 1; i < span; i++) {
+                header_row_1.push('');
+            }
+        }
+        header_row_1.push('Total');
+        worksheet.addRow(header_row_1);
+
+        // Merge month header cells
+        let col_idx = 5;
+        for (const month in monthGroups) {
+            const span = monthGroups[month];
+            if (span > 1) {
+                worksheet.mergeCells(4, col_idx, 4, col_idx + span - 1);
+            }
+            col_idx += span;
+        }
+
+        // 3. ADD HEADER ROW 2 (Day column names)
+        const header_row_2 = ['Department', 'Line Manager', 'Person', ''];
+        dates.forEach(date => {
+            const dayOfWeek = dayNames[date.getDay()];
+            const monthDay = `${date.getMonth() + 1}/${date.getDate()}`;
+            header_row_2.push(`${dayOfWeek}\n${monthDay}`);
+        });
+        header_row_2.push('');
+        worksheet.addRow(header_row_2);
+
+        // 4. ADD DATA ROWS
+        depts.forEach(dept => {
+            // Department row
+            const dept_row = [dept, '', '', ''];
+            let dept_total_hours = 0;
+            dateKeys.forEach(dateKey => {
+                let day_total = 0;
+                const persons = Object.keys(processedData[marketSubSector][dept].persons);
+                persons.forEach(person => {
+                    const dayData = getDailyDataForPerson(marketSubSector, dept, person, dateKey);
+                    day_total += dayData.total;
+                });
+                dept_row.push(roundToHalf(day_total));
+                dept_total_hours += day_total;
+            });
+            dept_row.push(roundToHalf(dept_total_hours));
+            worksheet.addRow(dept_row);
+
+            // Person rows
+            const persons = Object.keys(processedData[marketSubSector][dept].persons).sort();
+            persons.forEach(person => {
+                const manager = processedData[marketSubSector][dept].persons[person].manager || '';
+                const person_row = ['', manager, person, ''];
+                let person_total_hours = 0;
+                dateKeys.forEach(dateKey => {
+                    const dayData = getDailyDataForPerson(marketSubSector, dept, person, dateKey);
+                    person_row.push(roundToHalf(dayData.total));
+                    person_total_hours += dayData.total;
+                });
+                person_row.push(roundToHalf(person_total_hours));
+                worksheet.addRow(person_row);
+            });
+        });
+
+        // 5. ADD TOTAL ROW
+        const total_row = ['Total', '', '', ''];
+        let grand_total = 0;
+        dateKeys.forEach(dateKey => {
+            let day_total = 0;
+            depts.forEach(dept => {
+                const persons = Object.keys(processedData[marketSubSector][dept].persons);
+                persons.forEach(person => {
+                    const dayData = getDailyDataForPerson(marketSubSector, dept, person, dateKey);
+                    day_total += dayData.total;
+                });
+            });
+            total_row.push(roundToHalf(day_total));
+            grand_total += day_total;
+        });
+        total_row.push(roundToHalf(grand_total));
+        worksheet.addRow(total_row);
+
+        // 6. SET COLUMN WIDTHS
+        worksheet.getColumn(1).width = 35; // Department
+        worksheet.getColumn(2).width = 25; // Line Manager
+        worksheet.getColumn(3).width = 25; // Person
+        worksheet.getColumn(4).width = 5;  // Empty
+        for (let i = 5; i <= 4 + dates.length + 1; i++) {
+            worksheet.getColumn(i).width = 12; // Day columns
+        }
+
+        // 7. APPLY STYLES
+        worksheet.eachRow((row, rowNumber) => {
+            row.eachCell((cell, colNumber) => {
+                // Header rows
+                if (rowNumber === 4 || rowNumber === 5) {
+                    cell.style = headerStyle;
+
+                    // Apply weekend/holiday styling to header cells
+                    if (rowNumber === 5 && colNumber >= 5 && colNumber < 5 + dates.length) {
+                        const dateIdx = colNumber - 5;
+                        const date = dates[dateIdx];
+                        const dateKey = dateKeys[dateIdx];
+                        const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+                        const isHoliday = isHolidayDate(dateKey);
+
+                        if (isHoliday) {
+                            cell.style = { ...headerStyle, ...holidayStyle };
+                        } else if (isWeekend) {
+                            cell.style = { ...headerStyle, ...weekendStyle };
+                        }
+                    }
+                }
+                // Dept rows (check if manager and person are empty)
+                else if (rowNumber > 5 && row.getCell(2).value === '' && row.getCell(3).value === '') {
+                    cell.style = deptStyle;
+
+                    // Apply weekend/holiday styling to dept data cells
+                    if (colNumber >= 5 && colNumber < 5 + dates.length) {
+                        const dateIdx = colNumber - 5;
+                        const date = dates[dateIdx];
+                        const dateKey = dateKeys[dateIdx];
+                        const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+                        const isHoliday = isHolidayDate(dateKey);
+
+                        if (isHoliday) {
+                            cell.style = { ...deptStyle, ...holidayStyle };
+                        } else if (isWeekend) {
+                            cell.style = { ...deptStyle, ...weekendStyle };
+                        }
+                    }
+                }
+                // Total row (last row)
+                else if (rowNumber === worksheet.rowCount) {
+                    cell.style = totalStyle;
+
+                    // Apply weekend/holiday styling to total data cells
+                    if (colNumber >= 5 && colNumber < 5 + dates.length) {
+                        const dateIdx = colNumber - 5;
+                        const date = dates[dateIdx];
+                        const dateKey = dateKeys[dateIdx];
+                        const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+                        const isHoliday = isHolidayDate(dateKey);
+
+                        if (isHoliday) {
+                            cell.style = { ...totalStyle, ...holidayStyle };
+                        } else if (isWeekend) {
+                            cell.style = { ...totalStyle, ...weekendStyle };
+                        }
+                    }
+                }
+                // Person rows (alternating)
+                else if (rowNumber > 5) {
+                    const baseStyle = (rowNumber % 2 === 0) ? personEvenStyle : personOddStyle;
+                    cell.style = baseStyle;
+
+                    // Apply weekend/holiday styling to person data cells
+                    if (colNumber >= 5 && colNumber < 5 + dates.length) {
+                        const dateIdx = colNumber - 5;
+                        const date = dates[dateIdx];
+                        const dateKey = dateKeys[dateIdx];
+                        const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+                        const isHoliday = isHolidayDate(dateKey);
+
+                        if (isHoliday) {
+                            cell.style = { ...baseStyle, ...holidayStyle };
+                        } else if (isWeekend) {
+                            cell.style = { ...baseStyle, ...weekendStyle };
+                        }
+                    }
+                }
+            });
+        });
+
+        // 8. ADD AUTO-FILTER TO ROW 5
+        const lastCol = worksheet.columnCount;
+        worksheet.autoFilter = {
+            from: { row: 5, column: 1 },
+            to: { row: 5, column: lastCol }
+        };
+
+        return worksheet;
+    }
+
+    // Create a sheet for each Market Sub Sector
+    const marketSubSectors = Object.keys(processedData).sort();
+    marketSubSectors.forEach(marketSubSector => {
+        const depts = Object.keys(processedData[marketSubSector]).sort();
+        createMarketSheet(marketSubSector, depts);
+    });
+
+    // Write file
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'absence_daily_report.xlsx';
     a.click();
     URL.revokeObjectURL(url);
 }
