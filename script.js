@@ -45,6 +45,64 @@ generateDailyBtn.addEventListener('click', generateDailyReport);
 exportBtn.addEventListener('click', exportToExcel);
 exportDailyBtn.addEventListener('click', exportDailyToExcel);
 
+// Load previously saved files on page load
+window.addEventListener('DOMContentLoaded', loadSavedFiles);
+
+// Update file input label to show loaded filename
+function updateFileLabel(inputId, fileName) {
+    const input = document.getElementById(inputId);
+    let label = input.nextElementSibling;
+
+    // Create or update the label showing the filename
+    if (!label || !label.classList.contains('file-loaded-label')) {
+        label = document.createElement('span');
+        label.classList.add('file-loaded-label');
+        label.style.marginLeft = '10px';
+        label.style.color = 'green';
+        label.style.fontWeight = 'bold';
+        input.parentNode.appendChild(label);
+    }
+
+    label.textContent = `✓ ${fileName}`;
+}
+
+// Load saved files from localStorage on page load
+function loadSavedFiles() {
+    // Load absence file
+    const absenceContent = localStorage.getItem('absenceFileContent');
+    const absenceFileName = localStorage.getItem('absenceFileName');
+    if (absenceContent && absenceFileName) {
+        rawData = parseCSV(absenceContent);
+        processData(rawData);
+        controlsDiv.style.display = 'block';
+        updateFileLabel('fileInput', absenceFileName);
+        console.log('Auto-loaded absence file:', absenceFileName);
+    }
+
+    // Load org file
+    const orgContent = localStorage.getItem('orgFileContent');
+    const orgFileName = localStorage.getItem('orgFileName');
+    if (orgContent && orgFileName) {
+        orgData = parseOrgCSV(orgContent);
+        updateFileLabel('orgFileInput', orgFileName);
+        console.log('Auto-loaded org file:', orgFileName);
+    }
+
+    // Load holiday file
+    const holidayContent = localStorage.getItem('holidayFileContent');
+    const holidayFileName = localStorage.getItem('holidayFileName');
+    if (holidayContent && holidayFileName) {
+        holidayData = parseHolidayCSV(holidayContent);
+        updateFileLabel('holidayFileInput', holidayFileName);
+        console.log('Auto-loaded holiday file:', holidayFileName);
+    }
+
+    // Show message if files were auto-loaded
+    if (absenceContent || orgContent || holidayContent) {
+        console.log('\n✓ Previously uploaded files have been automatically loaded!');
+    }
+}
+
 function handleOrgFile(e) {
     const file = e.target.files[0];
     if (!file) return;
@@ -52,6 +110,10 @@ function handleOrgFile(e) {
     reader.onload = function(e) {
         const csv = e.target.result;
         orgData = parseOrgCSV(csv);
+        // Save to localStorage
+        localStorage.setItem('orgFileContent', csv);
+        localStorage.setItem('orgFileName', file.name);
+        updateFileLabel('orgFileInput', file.name);
     };
     reader.readAsText(file);
 }
@@ -87,6 +149,11 @@ function handleHolidayFile(e) {
     reader.onload = function(e) {
         const csv = e.target.result;
         holidayData = parseHolidayCSV(csv);
+
+        // Save to localStorage
+        localStorage.setItem('holidayFileContent', csv);
+        localStorage.setItem('holidayFileName', file.name);
+        updateFileLabel('holidayFileInput', file.name);
 
         // Show loaded holidays with detailed week calculations
         console.log('\n=== HOLIDAY DATA LOADED ===');
@@ -161,6 +228,10 @@ function handleFile(e) {
         rawData = parseCSV(csv);
         processData(rawData);
         controlsDiv.style.display = 'block';
+        // Save to localStorage
+        localStorage.setItem('absenceFileContent', csv);
+        localStorage.setItem('absenceFileName', file.name);
+        updateFileLabel('fileInput', file.name);
     };
     reader.readAsText(file);
 }
@@ -673,8 +744,9 @@ function isHolidayDate(dateKey) {
 
 // Generate day-by-day absence report
 function generateDailyReport() {
-    const startDate = new Date(startDateInput.value);
-    const endDate = new Date(endDateInput.value);
+    // Append T12:00:00 to treat dates as local noon and avoid timezone shifts
+    const startDate = new Date(startDateInput.value + 'T12:00:00');
+    const endDate = new Date(endDateInput.value + 'T12:00:00');
 
     // Validation
     if (!startDate || isNaN(startDate.getTime())) {
@@ -797,6 +869,7 @@ function generateDailyReport() {
     });
 
     markets.forEach(market => {
+        const marketId = market.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '');
         const depts = Object.keys(processedData[market]).sort();
 
         // Calculate market-level totals per day
@@ -823,8 +896,8 @@ function generateDailyReport() {
 
         // Market header row
         const marketTotal = Object.values(marketDayTotals).reduce((sum, val) => sum + val, 0);
-        html += `<tr class="market-header" data-market="${market}">`;
-        html += `<td>${market}</td><td></td><td></td>`;
+        html += `<tr class="market-header" onclick="toggleMarket('${marketId}')">`;
+        html += `<td colspan="2"><strong>${market}</strong> <span id="arrow-market-${marketId}">▼</span></td><td></td>`;
         dateKeys.forEach(dateKey => {
             const total = marketDayTotals[dateKey];
             const displayVal = total === 0 ? '<span class="zero">0</span>' : roundToHalf(total).toFixed(1);
@@ -833,13 +906,16 @@ function generateDailyReport() {
             const weekendClass = isWeekend ? ' weekend-cell' : '';
             const isHoliday = isHolidayDate(dateKey);
             const holidayClass = isHoliday ? ' holiday-day-cell' : '';
-            html += `<td class="day-cell${weekendClass}${holidayClass}">${displayVal}</td>`;
+            // Add tooltip to show date for verification
+            const tooltip = total > 0 ? `${dateKey}: ${roundToHalf(total).toFixed(2)}h (Market Total)` : '';
+            html += `<td class="day-cell${weekendClass}${holidayClass}"${tooltip ? ` data-tooltip="${tooltip}"` : ''}>${displayVal}</td>`;
         });
         html += `<td>${roundToHalf(marketTotal).toFixed(1)}</td>`;
         html += '</tr>';
 
         // Department rows
         depts.forEach(dept => {
+            const deptId = dept.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '');
             const persons = Object.keys(processedData[market][dept].persons).sort();
 
             // Calculate dept-level totals per day
@@ -857,8 +933,8 @@ function generateDailyReport() {
 
             // Department header row
             const deptTotal = Object.values(deptDayTotals).reduce((sum, val) => sum + val, 0);
-            html += `<tr class="dept-header" data-market="${market}" data-dept="${dept}">`;
-            html += `<td></td><td>${dept}</td><td></td>`;
+            html += `<tr class="dept-header ${marketId}" onclick="toggleDept('${deptId}')">`;
+            html += `<td></td><td colspan="2"><strong>${dept}</strong> <span id="arrow-dept-${deptId}">▼</span></td>`;
             dateKeys.forEach(dateKey => {
                 const total = deptDayTotals[dateKey];
                 const displayVal = total === 0 ? '<span class="zero">0</span>' : roundToHalf(total).toFixed(1);
@@ -867,7 +943,9 @@ function generateDailyReport() {
                 const weekendClass = isWeekend ? ' weekend-cell' : '';
                 const isHoliday = isHolidayDate(dateKey);
                 const holidayClass = isHoliday ? ' holiday-day-cell' : '';
-                html += `<td class="day-cell${weekendClass}${holidayClass}">${displayVal}</td>`;
+                // Add tooltip to show date for verification
+                const tooltip = total > 0 ? `${dateKey}: ${roundToHalf(total).toFixed(2)}h (Dept Total)` : '';
+                html += `<td class="day-cell${weekendClass}${holidayClass}"${tooltip ? ` data-tooltip="${tooltip}"` : ''}>${displayVal}</td>`;
             });
             html += `<td>${roundToHalf(deptTotal).toFixed(1)}</td>`;
             html += '</tr>';
@@ -879,7 +957,7 @@ function generateDailyReport() {
                     return sum + dayData.total;
                 }, 0);
 
-                html += `<tr class="person-row" data-market="${market}" data-dept="${dept}">`;
+                html += `<tr class="person-row ${deptId}">`;
                 const manager = processedData[market][dept].persons[person].manager || '';
                 html += `<td></td><td></td><td>${person} (${manager})</td>`;
 
@@ -933,7 +1011,9 @@ function generateDailyReport() {
         const weekendClass = isWeekend ? ' weekend-cell' : '';
         const isHoliday = isHolidayDate(dateKey);
         const holidayClass = isHoliday ? ' holiday-day-cell' : '';
-        html += `<td class="day-cell${weekendClass}${holidayClass}">${displayVal}</td>`;
+        // Add tooltip to show date for verification
+        const tooltip = total > 0 ? `${dateKey}: ${roundToHalf(total).toFixed(2)}h (Overall Total)` : '';
+        html += `<td class="day-cell${weekendClass}${holidayClass}"${tooltip ? ` data-tooltip="${tooltip}"` : ''}>${displayVal}</td>`;
     });
     html += `<td>${roundToHalf(overallTotal).toFixed(1)}</td>`;
     html += '</tr>';
