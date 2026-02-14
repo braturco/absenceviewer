@@ -22,7 +22,7 @@ th, td {
     padding: 4px;
     text-align: left;
     /* Fixed width for week columns */
-    width: 70px;
+    width: 100px;
 }
 
 /* Override width for first 3 columns (hierarchy columns) */
@@ -38,14 +38,14 @@ th:nth-child(3), td:nth-child(3) {
     width: 150px;
 }
 
-/* Month headers automatically sized as colspan × 70px */
+/* Month headers automatically sized as colspan × 100px */
 thead tr:first-child th[colspan] {
     padding: 4px;
 }
 
-/* Week headers use fixed 70px width */
+/* Week headers use fixed 100px width */
 thead tr:nth-child(2) th:not(:first-child):not(:nth-child(2)):not(:nth-child(3)) {
-    width: 70px;
+    width: 100px;
 }
 
 th {
