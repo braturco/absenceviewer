@@ -371,7 +371,10 @@ function generateReport() {
     legendHtml += '</div>';
     // Build table
     let html = '<div style="margin-bottom: 10px;"><button id="expandAllBtn">Expand All</button> <button id="collapseAllBtn">Collapse All</button></div>';
-    html += legendHtml + '<table>';
+
+    // Calculate total table width: 3 hierarchy cols (150px each) + week cols (57px each) + 1 total col (57px)
+    const tableWidth = (3 * 150) + (weeks.length * 57) + 57;
+    html += legendHtml + `<table style="width: ${tableWidth}px;">`;
 
     // Add colgroup to explicitly define column structure
     html += '<colgroup>';
@@ -381,10 +384,10 @@ function generateReport() {
     html += '<col style="width: 150px;">';  // Person
     // Week columns
     weeks.forEach(() => {
-        html += '<col style="width: 100px;">';
+        html += '<col style="width: 57px;">';
     });
     // Total column
-    html += '<col style="width: 100px;">';
+    html += '<col style="width: 57px;">';
     html += '</colgroup>';
 
     html += '<thead>';
