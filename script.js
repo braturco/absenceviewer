@@ -371,7 +371,23 @@ function generateReport() {
     legendHtml += '</div>';
     // Build table
     let html = '<div style="margin-bottom: 10px;"><button id="expandAllBtn">Expand All</button> <button id="collapseAllBtn">Collapse All</button></div>';
-    html += legendHtml + '<table><thead>';
+    html += legendHtml + '<table>';
+
+    // Add colgroup to explicitly define column structure
+    html += '<colgroup>';
+    // First 3 hierarchy columns
+    html += '<col style="width: 150px;">';  // Market Sub Sector
+    html += '<col style="width: 150px;">';  // Department
+    html += '<col style="width: 150px;">';  // Person
+    // Week columns
+    weeks.forEach(() => {
+        html += '<col style="width: 100px;">';
+    });
+    // Total column
+    html += '<col style="width: 100px;">';
+    html += '</colgroup>';
+
+    html += '<thead>';
     html += '<tr><th rowspan="2">Market Sub Sector</th><th rowspan="2">Department</th><th rowspan="2">Person</th>';
     Object.keys(monthGroups).forEach(m => {
         html += `<th colspan="${monthGroups[m].length}">${m}</th>`;
