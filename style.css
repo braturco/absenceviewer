@@ -61,29 +61,36 @@ th:nth-child(3) {
     z-index: 4;
 }
 
-th:first-child, td:first-child,
-th:nth-child(2), td:nth-child(2),
-th:nth-child(3), td:nth-child(3) {
+/* Sticky positioning only for first header row and body cells */
+thead tr:first-child th:first-child,
+thead tr:first-child th:nth-child(2),
+thead tr:first-child th:nth-child(3),
+tbody tr td:first-child,
+tbody tr td:nth-child(2),
+tbody tr td:nth-child(3) {
     position: sticky;
     z-index: 3;
 }
 
-th:first-child, td:first-child {
+thead tr:first-child th:first-child,
+tbody tr td:first-child {
     left: 0;
 }
 
-th:nth-child(2), td:nth-child(2) {
+thead tr:first-child th:nth-child(2),
+tbody tr td:nth-child(2) {
     left: 150px; /* Adjust based on first column width */
 }
 
-th:nth-child(3), td:nth-child(3) {
+thead tr:first-child th:nth-child(3),
+tbody tr td:nth-child(3) {
     left: 300px; /* Adjust based on first two columns width */
 }
 
 /* Default background for sticky columns */
-td:first-child,
-td:nth-child(2),
-td:nth-child(3) {
+tbody tr td:first-child,
+tbody tr td:nth-child(2),
+tbody tr td:nth-child(3) {
     background-color: white;
 }
 
