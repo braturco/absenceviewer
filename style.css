@@ -45,7 +45,7 @@ thead tr:first-child th[colspan] {
 
 /* Week headers use fixed 100px width */
 thead tr:nth-child(2) th:not(:first-child):not(:nth-child(2)):not(:nth-child(3)) {
-    width: 100px;
+    width: 200px;
 }
 
 th {
