@@ -1061,6 +1061,9 @@ async function exportToExcel() {
         fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF888888' } },
         font: { bold: true, color: { argb: 'FFFFFFFF' } }
     };
+    const holidayStyle = {
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF9C4' } }
+    };
 
     // Helper function to create a sheet for a market sector
     function createMarketSheet(marketSubSector, depts) {
@@ -1111,7 +1114,20 @@ async function exportToExcel() {
             header_row_2.push(`Week ${item.weekNum}${suffix}\n(${mm}/${dd})`);
         });
         header_row_2.push('');
-        worksheet.addRow(header_row_2);
+        const headerRow2 = worksheet.addRow(header_row_2);
+
+        // Add comments to week headers that have holidays
+        weeks.forEach((item, idx) => {
+            const hasHoliday = holidayData[item.weekNum] && holidayData[item.weekNum].length > 0;
+            if (hasHoliday) {
+                const columnIndex = 5 + idx; // Columns start at 5 (after Dept, Manager, Person, empty)
+                const cell = headerRow2.getCell(columnIndex);
+                const holidayText = holidayData[item.weekNum].map(h =>
+                    `${h.date}: ${h.holiday} (${h.appliesTo})`
+                ).join('\n');
+                cell.note = holidayText;
+            }
+        });
 
         // 4. ADD DATA ROWS
         depts.forEach(dept => {
@@ -1183,21 +1199,43 @@ async function exportToExcel() {
         // 7. APPLY STYLES
         worksheet.eachRow((row, rowNumber) => {
             row.eachCell((cell, colNumber) => {
+                // Determine if this column is a holiday week
+                const isHolidayColumn = colNumber >= 5 && colNumber < 5 + weeks.length &&
+                    holidayData[weeks[colNumber - 5].weekNum] &&
+                    holidayData[weeks[colNumber - 5].weekNum].length > 0;
+
                 // Header rows
                 if (rowNumber === 1 || rowNumber === 2) {
-                    cell.style = headerStyle;
+                    if (isHolidayColumn) {
+                        cell.style = { ...headerStyle, ...holidayStyle };
+                    } else {
+                        cell.style = headerStyle;
+                    }
                 }
                 // Dept rows (check if manager and person are empty)
                 else if (rowNumber > 2 && row.getCell(2).value === '' && row.getCell(3).value === '') {
-                    cell.style = deptStyle;
+                    if (isHolidayColumn) {
+                        cell.style = { ...deptStyle, ...holidayStyle };
+                    } else {
+                        cell.style = deptStyle;
+                    }
                 }
                 // Total row (last row)
                 else if (rowNumber === worksheet.rowCount) {
-                    cell.style = totalStyle;
+                    if (isHolidayColumn) {
+                        cell.style = { ...totalStyle, ...holidayStyle };
+                    } else {
+                        cell.style = totalStyle;
+                    }
                 }
                 // Person rows (alternating)
                 else if (rowNumber > 2) {
-                    cell.style = (rowNumber % 2 === 0) ? personEvenStyle : personOddStyle;
+                    const baseStyle = (rowNumber % 2 === 0) ? personEvenStyle : personOddStyle;
+                    if (isHolidayColumn) {
+                        cell.style = { ...baseStyle, ...holidayStyle };
+                    } else {
+                        cell.style = baseStyle;
+                    }
                 }
             });
         });
@@ -1212,12 +1250,75 @@ async function exportToExcel() {
         return worksheet;
     }
 
-    // Create a sheet for each Market Sub Sector
+    // Create Contents sheet
+    const contentsSheet = workbook.addWorksheet('Contents');
+    contentsSheet.getColumn(1).width = 50;
+    contentsSheet.getColumn(2).width = 20;
+
+    // Add title
+    const titleRow = contentsSheet.addRow(['Absence Report - Contents']);
+    titleRow.font = { size: 16, bold: true };
+    titleRow.getCell(1).fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FF4472C4' }
+    };
+    titleRow.getCell(1).font = { size: 16, bold: true, color: { argb: 'FFFFFFFF' } };
+    titleRow.height = 30;
+    titleRow.alignment = { vertical: 'middle', horizontal: 'left' };
+
+    contentsSheet.addRow([]);
+
+    // Add header row
+    const headerRow = contentsSheet.addRow(['Market Sub Sector', 'Sheet Link']);
+    headerRow.font = { bold: true };
+    headerRow.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFD0D0D0' }
+    };
+    headerRow.alignment = { vertical: 'middle', horizontal: 'left' };
+
+    // Create a sheet for each Market Sub Sector and add to contents
     const marketSubSectors = Object.keys(processedData).sort();
-    marketSubSectors.forEach(marketSubSector => {
+    marketSubSectors.forEach((marketSubSector, index) => {
         const depts = Object.keys(processedData[marketSubSector]).sort();
-        createMarketSheet(marketSubSector, depts);
+        const worksheet = createMarketSheet(marketSubSector, depts);
+
+        // Add link in Contents sheet
+        const linkRow = contentsSheet.addRow([marketSubSector, 'Go to sheet']);
+        const linkCell = linkRow.getCell(2);
+        linkCell.value = {
+            text: 'Go to sheet',
+            hyperlink: `#'${worksheet.name}'!A1`,
+            tooltip: `Click to go to ${marketSubSector}`
+        };
+        linkCell.font = { color: { argb: 'FF0000FF' }, underline: true };
+        linkCell.alignment = { vertical: 'middle', horizontal: 'center' };
+
+        // Alternate row colors
+        if (index % 2 === 0) {
+            linkRow.fill = {
+                type: 'pattern',
+                pattern: 'solid',
+                fgColor: { argb: 'FFF2F2F2' }
+            };
+        }
     });
+
+    // Add borders to contents table
+    const lastContentRow = 3 + marketSubSectors.length;
+    for (let row = 3; row <= lastContentRow; row++) {
+        for (let col = 1; col <= 2; col++) {
+            const cell = contentsSheet.getRow(row).getCell(col);
+            cell.border = {
+                top: { style: 'thin' },
+                left: { style: 'thin' },
+                bottom: { style: 'thin' },
+                right: { style: 'thin' }
+            };
+        }
+    }
 
     // Write file
     const buffer = await workbook.xlsx.writeBuffer();
@@ -1549,12 +1650,75 @@ async function exportDailyToExcel() {
         return worksheet;
     }
 
-    // Create a sheet for each Market Sub Sector
+    // Create Contents sheet
+    const contentsSheet = workbook.addWorksheet('Contents');
+    contentsSheet.getColumn(1).width = 50;
+    contentsSheet.getColumn(2).width = 20;
+
+    // Add title
+    const titleRow = contentsSheet.addRow(['Absence Daily Report - Contents']);
+    titleRow.font = { size: 16, bold: true };
+    titleRow.getCell(1).fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FF4472C4' }
+    };
+    titleRow.getCell(1).font = { size: 16, bold: true, color: { argb: 'FFFFFFFF' } };
+    titleRow.height = 30;
+    titleRow.alignment = { vertical: 'middle', horizontal: 'left' };
+
+    contentsSheet.addRow([]);
+
+    // Add header row
+    const headerRow = contentsSheet.addRow(['Market Sub Sector', 'Sheet Link']);
+    headerRow.font = { bold: true };
+    headerRow.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFD0D0D0' }
+    };
+    headerRow.alignment = { vertical: 'middle', horizontal: 'left' };
+
+    // Create a sheet for each Market Sub Sector and add to contents
     const marketSubSectors = Object.keys(processedData).sort();
-    marketSubSectors.forEach(marketSubSector => {
+    marketSubSectors.forEach((marketSubSector, index) => {
         const depts = Object.keys(processedData[marketSubSector]).sort();
-        createMarketSheet(marketSubSector, depts);
+        const worksheet = createMarketSheet(marketSubSector, depts);
+
+        // Add link in Contents sheet
+        const linkRow = contentsSheet.addRow([marketSubSector, 'Go to sheet']);
+        const linkCell = linkRow.getCell(2);
+        linkCell.value = {
+            text: 'Go to sheet',
+            hyperlink: `#'${worksheet.name}'!A1`,
+            tooltip: `Click to go to ${marketSubSector}`
+        };
+        linkCell.font = { color: { argb: 'FF0000FF' }, underline: true };
+        linkCell.alignment = { vertical: 'middle', horizontal: 'center' };
+
+        // Alternate row colors
+        if (index % 2 === 0) {
+            linkRow.fill = {
+                type: 'pattern',
+                pattern: 'solid',
+                fgColor: { argb: 'FFF2F2F2' }
+            };
+        }
     });
+
+    // Add borders to contents table
+    const lastContentRow = 3 + marketSubSectors.length;
+    for (let row = 3; row <= lastContentRow; row++) {
+        for (let col = 1; col <= 2; col++) {
+            const cell = contentsSheet.getRow(row).getCell(col);
+            cell.border = {
+                top: { style: 'thin' },
+                left: { style: 'thin' },
+                bottom: { style: 'thin' },
+                right: { style: 'thin' }
+            };
+        }
+    }
 
     // Write file
     const buffer = await workbook.xlsx.writeBuffer();
