@@ -1252,11 +1252,11 @@ async function exportToExcel() {
 
     // Create Contents sheet
     const contentsSheet = workbook.addWorksheet('Contents');
-    contentsSheet.getColumn(1).width = 50;
-    contentsSheet.getColumn(2).width = 20;
+    contentsSheet.getColumn(1).width = 35;
+    contentsSheet.getColumn(2).width = 15;
 
     // Add title
-    const titleRow = contentsSheet.addRow(['Absence Report - Contents']);
+    const titleRow = contentsSheet.addRow(['Absence Report - Summary']);
     titleRow.font = { size: 16, bold: true };
     titleRow.getCell(1).fill = {
         type: 'pattern',
@@ -1269,24 +1269,88 @@ async function exportToExcel() {
 
     contentsSheet.addRow([]);
 
-    // Add header row
-    const headerRow = contentsSheet.addRow(['Market Sub Sector', 'Sheet Link']);
-    headerRow.font = { bold: true };
-    headerRow.fill = {
-        type: 'pattern',
-        pattern: 'solid',
-        fgColor: { argb: 'FFD0D0D0' }
-    };
-    headerRow.alignment = { vertical: 'middle', horizontal: 'left' };
+    // Build month groups for header
+    const monthGroups = {};
+    weeks.forEach((item, idx) => {
+        const month = item.endDate.getMonth();
+        const year = item.endDate.getFullYear();
+        let monthName = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][month];
+        const m = `${monthName} ${year}`;
+        if (!monthGroups[m]) monthGroups[m] = 0;
+        monthGroups[m]++;
+    });
 
-    // Create a sheet for each Market Sub Sector and add to contents
+    // Add header row 1 (months)
+    const header_row_1 = ['Market Sub Sector', 'Link'];
+    for (const month in monthGroups) {
+        header_row_1.push(month);
+        const span = monthGroups[month];
+        for (let i = 1; i < span; i++) {
+            header_row_1.push('');
+        }
+    }
+    header_row_1.push('Total');
+    const monthHeaderRow = contentsSheet.addRow(header_row_1);
+
+    // Merge month header cells
+    let col_idx = 3;
+    for (const month in monthGroups) {
+        const span = monthGroups[month];
+        if (span > 1) {
+            contentsSheet.mergeCells(3, col_idx, 3, col_idx + span - 1);
+        }
+        col_idx += span;
+    }
+
+    // Add header row 2 (weeks)
+    const header_row_2 = ['Market Sub Sector', 'Link'];
+    weeks.forEach(item => {
+        const suffix = item.endDate.getFullYear() === 2025 ? ' (-1)' : '';
+        header_row_2.push(`Wk ${item.weekNum}${suffix}`);
+    });
+    header_row_2.push('Total');
+    const weekHeaderRow = contentsSheet.addRow(header_row_2);
+
+    // Set column widths for week columns
+    for (let i = 3; i <= 2 + weeks.length + 1; i++) {
+        contentsSheet.getColumn(i).width = 10;
+    }
+
+    // Calculate totals for each sector by week
     const marketSubSectors = Object.keys(processedData).sort();
+    const weekTotals = {}; // Track column totals
+    weeks.forEach(item => weekTotals[item.weekNum] = 0);
+
     marketSubSectors.forEach((marketSubSector, index) => {
         const depts = Object.keys(processedData[marketSubSector]).sort();
         const worksheet = createMarketSheet(marketSubSector, depts);
 
-        // Add link in Contents sheet
-        const linkRow = contentsSheet.addRow([marketSubSector, 'Go to sheet']);
+        // Calculate totals for this sector by week
+        const sectorWeekTotals = {};
+        let sectorGrandTotal = 0;
+
+        weeks.forEach(item => {
+            let weekTotal = 0;
+            depts.forEach(dept => {
+                const persons = Object.keys(processedData[marketSubSector][dept].persons);
+                persons.forEach(person => {
+                    const data = processedData[marketSubSector][dept].persons[person].weeks[item.weekNum] || { total: 0 };
+                    weekTotal += data.total;
+                });
+            });
+            sectorWeekTotals[item.weekNum] = weekTotal;
+            sectorGrandTotal += weekTotal;
+            weekTotals[item.weekNum] += weekTotal;
+        });
+
+        // Add row with sector name, link, and weekly totals
+        const dataRow = [marketSubSector, 'Go to sheet'];
+        weeks.forEach(item => {
+            dataRow.push(roundToHalf(sectorWeekTotals[item.weekNum]));
+        });
+        dataRow.push(roundToHalf(sectorGrandTotal));
+
+        const linkRow = contentsSheet.addRow(dataRow);
         const linkCell = linkRow.getCell(2);
         linkCell.value = {
             text: 'Go to sheet',
@@ -1295,30 +1359,92 @@ async function exportToExcel() {
         };
         linkCell.font = { color: { argb: 'FF0000FF' }, underline: true };
         linkCell.alignment = { vertical: 'middle', horizontal: 'center' };
+    });
 
-        // Alternate row colors
-        if (index % 2 === 0) {
-            linkRow.fill = {
-                type: 'pattern',
-                pattern: 'solid',
-                fgColor: { argb: 'FFF2F2F2' }
-            };
+    // Add overall total row
+    const totalRow = ['Overall Total', ''];
+    let overallGrandTotal = 0;
+    weeks.forEach(item => {
+        totalRow.push(roundToHalf(weekTotals[item.weekNum]));
+        overallGrandTotal += weekTotals[item.weekNum];
+    });
+    totalRow.push(roundToHalf(overallGrandTotal));
+    const overallTotalRow = contentsSheet.addRow(totalRow);
+
+    // Apply styles
+    const lastContentRow = 4 + marketSubSectors.length + 1; // +1 for total row
+    const lastContentCol = 2 + weeks.length + 1;
+
+    // Style header rows
+    [monthHeaderRow, weekHeaderRow].forEach(row => {
+        row.eachCell((cell, colNumber) => {
+            cell.style = headerStyle;
+            // Apply holiday highlighting to week columns in header
+            if (row === weekHeaderRow && colNumber >= 3 && colNumber < 3 + weeks.length) {
+                const weekIdx = colNumber - 3;
+                const isHolidayColumn = holidayData[weeks[weekIdx].weekNum] &&
+                    holidayData[weeks[weekIdx].weekNum].length > 0;
+                if (isHolidayColumn) {
+                    cell.style = { ...headerStyle, ...holidayStyle };
+                }
+            }
+        });
+    });
+
+    // Style data rows
+    contentsSheet.eachRow((row, rowNumber) => {
+        if (rowNumber >= 5 && rowNumber < lastContentRow) {
+            row.eachCell((cell, colNumber) => {
+                const baseStyle = (rowNumber % 2 === 0) ? personEvenStyle : personOddStyle;
+
+                // Check if this is a holiday column
+                if (colNumber >= 3 && colNumber < 3 + weeks.length) {
+                    const weekIdx = colNumber - 3;
+                    const isHolidayColumn = holidayData[weeks[weekIdx].weekNum] &&
+                        holidayData[weeks[weekIdx].weekNum].length > 0;
+                    if (isHolidayColumn) {
+                        cell.style = { ...baseStyle, ...holidayStyle };
+                    } else {
+                        cell.style = baseStyle;
+                    }
+                } else {
+                    cell.style = baseStyle;
+                }
+
+                // Add borders
+                cell.border = {
+                    top: { style: 'thin' },
+                    left: { style: 'thin' },
+                    bottom: { style: 'thin' },
+                    right: { style: 'thin' }
+                };
+            });
         }
     });
 
-    // Add borders to contents table
-    const lastContentRow = 3 + marketSubSectors.length;
-    for (let row = 3; row <= lastContentRow; row++) {
-        for (let col = 1; col <= 2; col++) {
-            const cell = contentsSheet.getRow(row).getCell(col);
-            cell.border = {
-                top: { style: 'thin' },
-                left: { style: 'thin' },
-                bottom: { style: 'thin' },
-                right: { style: 'thin' }
-            };
+    // Style total row
+    overallTotalRow.eachCell((cell, colNumber) => {
+        // Check if this is a holiday column
+        if (colNumber >= 3 && colNumber < 3 + weeks.length) {
+            const weekIdx = colNumber - 3;
+            const isHolidayColumn = holidayData[weeks[weekIdx].weekNum] &&
+                holidayData[weeks[weekIdx].weekNum].length > 0;
+            if (isHolidayColumn) {
+                cell.style = { ...totalStyle, ...holidayStyle };
+            } else {
+                cell.style = totalStyle;
+            }
+        } else {
+            cell.style = totalStyle;
         }
-    }
+
+        cell.border = {
+            top: { style: 'thin' },
+            left: { style: 'thin' },
+            bottom: { style: 'thin' },
+            right: { style: 'thin' }
+        };
+    });
 
     // Write file
     const buffer = await workbook.xlsx.writeBuffer();
@@ -1652,11 +1778,11 @@ async function exportDailyToExcel() {
 
     // Create Contents sheet
     const contentsSheet = workbook.addWorksheet('Contents');
-    contentsSheet.getColumn(1).width = 50;
-    contentsSheet.getColumn(2).width = 20;
+    contentsSheet.getColumn(1).width = 35;
+    contentsSheet.getColumn(2).width = 15;
 
     // Add title
-    const titleRow = contentsSheet.addRow(['Absence Daily Report - Contents']);
+    const titleRow = contentsSheet.addRow(['Absence Daily Report - Summary']);
     titleRow.font = { size: 16, bold: true };
     titleRow.getCell(1).fill = {
         type: 'pattern',
@@ -1669,24 +1795,89 @@ async function exportDailyToExcel() {
 
     contentsSheet.addRow([]);
 
-    // Add header row
-    const headerRow = contentsSheet.addRow(['Market Sub Sector', 'Sheet Link']);
-    headerRow.font = { bold: true };
-    headerRow.fill = {
-        type: 'pattern',
-        pattern: 'solid',
-        fgColor: { argb: 'FFD0D0D0' }
-    };
-    headerRow.alignment = { vertical: 'middle', horizontal: 'left' };
+    // Build month groups for header
+    const dailyMonthGroups = {};
+    dates.forEach((date) => {
+        const month = date.getMonth();
+        const year = date.getFullYear();
+        const monthName = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][month];
+        const m = `${monthName} ${year}`;
+        if (!dailyMonthGroups[m]) dailyMonthGroups[m] = 0;
+        dailyMonthGroups[m]++;
+    });
 
-    // Create a sheet for each Market Sub Sector and add to contents
+    // Add header row 1 (months)
+    const header_row_1 = ['Market Sub Sector', 'Link'];
+    for (const month in dailyMonthGroups) {
+        header_row_1.push(month);
+        const span = dailyMonthGroups[month];
+        for (let i = 1; i < span; i++) {
+            header_row_1.push('');
+        }
+    }
+    header_row_1.push('Total');
+    const monthHeaderRow = contentsSheet.addRow(header_row_1);
+
+    // Merge month header cells
+    let col_idx = 3;
+    for (const month in dailyMonthGroups) {
+        const span = dailyMonthGroups[month];
+        if (span > 1) {
+            contentsSheet.mergeCells(3, col_idx, 3, col_idx + span - 1);
+        }
+        col_idx += span;
+    }
+
+    // Add header row 2 (days)
+    const header_row_2 = ['Market Sub Sector', 'Link'];
+    dates.forEach(date => {
+        const dayOfWeek = dayNames[date.getDay()];
+        const monthDay = `${date.getMonth() + 1}/${date.getDate()}`;
+        header_row_2.push(`${dayOfWeek}\n${monthDay}`);
+    });
+    header_row_2.push('Total');
+    const dayHeaderRow = contentsSheet.addRow(header_row_2);
+
+    // Set column widths for day columns
+    for (let i = 3; i <= 2 + dates.length + 1; i++) {
+        contentsSheet.getColumn(i).width = 10;
+    }
+
+    // Calculate totals for each sector by day
     const marketSubSectors = Object.keys(processedData).sort();
-    marketSubSectors.forEach((marketSubSector, index) => {
+    const dayTotals = {}; // Track column totals
+    dateKeys.forEach(dateKey => dayTotals[dateKey] = 0);
+
+    marketSubSectors.forEach((marketSubSector) => {
         const depts = Object.keys(processedData[marketSubSector]).sort();
         const worksheet = createMarketSheet(marketSubSector, depts);
 
-        // Add link in Contents sheet
-        const linkRow = contentsSheet.addRow([marketSubSector, 'Go to sheet']);
+        // Calculate totals for this sector by day
+        const sectorDayTotals = {};
+        let sectorGrandTotal = 0;
+
+        dateKeys.forEach(dateKey => {
+            let dayTotal = 0;
+            depts.forEach(dept => {
+                const persons = Object.keys(processedData[marketSubSector][dept].persons);
+                persons.forEach(person => {
+                    const dayData = getDailyDataForPerson(marketSubSector, dept, person, dateKey);
+                    dayTotal += dayData.total;
+                });
+            });
+            sectorDayTotals[dateKey] = dayTotal;
+            sectorGrandTotal += dayTotal;
+            dayTotals[dateKey] += dayTotal;
+        });
+
+        // Add row with sector name, link, and daily totals
+        const dataRow = [marketSubSector, 'Go to sheet'];
+        dateKeys.forEach(dateKey => {
+            dataRow.push(roundToHalf(sectorDayTotals[dateKey]));
+        });
+        dataRow.push(roundToHalf(sectorGrandTotal));
+
+        const linkRow = contentsSheet.addRow(dataRow);
         const linkCell = linkRow.getCell(2);
         linkCell.value = {
             text: 'Go to sheet',
@@ -1695,30 +1886,103 @@ async function exportDailyToExcel() {
         };
         linkCell.font = { color: { argb: 'FF0000FF' }, underline: true };
         linkCell.alignment = { vertical: 'middle', horizontal: 'center' };
+    });
 
-        // Alternate row colors
-        if (index % 2 === 0) {
-            linkRow.fill = {
-                type: 'pattern',
-                pattern: 'solid',
-                fgColor: { argb: 'FFF2F2F2' }
-            };
+    // Add overall total row
+    const totalRow = ['Overall Total', ''];
+    let overallGrandTotal = 0;
+    dateKeys.forEach(dateKey => {
+        totalRow.push(roundToHalf(dayTotals[dateKey]));
+        overallGrandTotal += dayTotals[dateKey];
+    });
+    totalRow.push(roundToHalf(overallGrandTotal));
+    const overallTotalRow = contentsSheet.addRow(totalRow);
+
+    // Apply styles
+    const lastContentRow = 4 + marketSubSectors.length + 1; // +1 for total row
+
+    // Style header rows
+    [monthHeaderRow, dayHeaderRow].forEach(row => {
+        row.eachCell((cell, colNumber) => {
+            cell.style = headerStyle;
+            // Apply weekend/holiday highlighting to day columns in header
+            if (row === dayHeaderRow && colNumber >= 3 && colNumber < 3 + dates.length) {
+                const dateIdx = colNumber - 3;
+                const date = dates[dateIdx];
+                const dateKey = dateKeys[dateIdx];
+                const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+                const isHoliday = isHolidayDate(dateKey);
+                if (isHoliday) {
+                    cell.style = { ...headerStyle, ...holidayStyle };
+                } else if (isWeekend) {
+                    cell.style = { ...headerStyle, ...weekendStyle };
+                }
+            }
+        });
+    });
+
+    // Style data rows
+    contentsSheet.eachRow((row, rowNumber) => {
+        if (rowNumber >= 5 && rowNumber < lastContentRow) {
+            row.eachCell((cell, colNumber) => {
+                const baseStyle = (rowNumber % 2 === 0) ? personEvenStyle : personOddStyle;
+
+                // Check if this is a weekend or holiday column
+                if (colNumber >= 3 && colNumber < 3 + dates.length) {
+                    const dateIdx = colNumber - 3;
+                    const date = dates[dateIdx];
+                    const dateKey = dateKeys[dateIdx];
+                    const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+                    const isHoliday = isHolidayDate(dateKey);
+                    if (isHoliday) {
+                        cell.style = { ...baseStyle, ...holidayStyle };
+                    } else if (isWeekend) {
+                        cell.style = { ...baseStyle, ...weekendStyle };
+                    } else {
+                        cell.style = baseStyle;
+                    }
+                } else {
+                    cell.style = baseStyle;
+                }
+
+                // Add borders
+                cell.border = {
+                    top: { style: 'thin' },
+                    left: { style: 'thin' },
+                    bottom: { style: 'thin' },
+                    right: { style: 'thin' }
+                };
+            });
         }
     });
 
-    // Add borders to contents table
-    const lastContentRow = 3 + marketSubSectors.length;
-    for (let row = 3; row <= lastContentRow; row++) {
-        for (let col = 1; col <= 2; col++) {
-            const cell = contentsSheet.getRow(row).getCell(col);
-            cell.border = {
-                top: { style: 'thin' },
-                left: { style: 'thin' },
-                bottom: { style: 'thin' },
-                right: { style: 'thin' }
-            };
+    // Style total row
+    overallTotalRow.eachCell((cell, colNumber) => {
+        // Check if this is a weekend or holiday column
+        if (colNumber >= 3 && colNumber < 3 + dates.length) {
+            const dateIdx = colNumber - 3;
+            const date = dates[dateIdx];
+            const dateKey = dateKeys[dateIdx];
+            const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+            const isHoliday = isHolidayDate(dateKey);
+            if (isHoliday) {
+                cell.style = { ...totalStyle, ...holidayStyle };
+            } else if (isWeekend) {
+                cell.style = { ...totalStyle, ...weekendStyle };
+            } else {
+                cell.style = totalStyle;
+            }
+        } else {
+            cell.style = totalStyle;
         }
-    }
+
+        cell.border = {
+            top: { style: 'thin' },
+            left: { style: 'thin' },
+            bottom: { style: 'thin' },
+            right: { style: 'thin' }
+        };
+    });
 
     // Write file
     const buffer = await workbook.xlsx.writeBuffer();
