@@ -483,20 +483,24 @@
                                    'July', 'August', 'September', 'October', 'November', 'December'];
 
                 // Filter data by Market Sector and User Person Type
-                const targetSector = 'CA-BL002-Earth & Environment';
+                // Use flexible matching to handle special characters
+                const targetSectorMatch = (sector) => {
+                    if (!sector) return false;
+                    return sector.includes('CA-BL002') && sector.includes('Earth');
+                };
 
                 // Debug: Show unique market sectors
                 const uniqueSectors = new Set(staffListData.map(emp => emp['Market Sector']));
                 console.log('Unique Market Sectors found:', Array.from(uniqueSectors));
-                console.log('Looking for:', targetSector);
+                console.log('Filtering for sectors containing: CA-BL002 and Earth');
 
                 const filteredStaffList = staffListData.filter(emp =>
-                    emp['Market Sector'] === targetSector &&
+                    targetSectorMatch(emp['Market Sector']) &&
                     emp['User Person Type'] !== 'ICRC'
                 );
 
                 const filteredStaffExit = staffExitData.filter(emp =>
-                    emp['Market Sector'] === targetSector &&
+                    targetSectorMatch(emp['Market Sector']) &&
                     emp['User Person Type'] !== 'ICRC'
                 );
 
