@@ -318,30 +318,43 @@
 
                     console.log('Available sheets:', workbook.SheetNames);
 
-                    // Find Staff List tab (case insensitive and flexible matching)
+                    // Find Staff List tab (flexible matching)
                     let staffListSheetName = workbook.SheetNames.find(name =>
-                        name.includes('Staff_List') || name.includes('Staff List')
+                        name.includes('Staff_List') || name.includes('Staff List') || name.includes('80-1')
                     );
 
+                    // Default to Sheet1 if specific name not found
                     if (!staffListSheetName) {
-                        showError('Sheet containing "Staff_List" or "Staff List" not found. Available sheets: ' + workbook.SheetNames.join(', '));
-                        return;
+                        staffListSheetName = workbook.SheetNames[0]; // Default to first sheet
+                        console.log('Using first sheet for Staff List:', staffListSheetName);
                     }
 
                     const staffListSheet = workbook.Sheets[staffListSheetName];
+                    if (!staffListSheet) {
+                        showError('Could not read staff list sheet. Available sheets: ' + workbook.SheetNames.join(', '));
+                        return;
+                    }
                     staffListData = XLSX.utils.sheet_to_json(staffListSheet, { raw: false, dateNF: 'yyyy-mm-dd' });
 
-                    // Find Staff Exit tab (case insensitive and flexible matching)
+                    // Find Staff Exit tab (flexible matching)
                     let staffExitSheetName = workbook.SheetNames.find(name =>
-                        name.includes('Staff_Exit') || name.includes('Staff Exit')
+                        name.includes('Staff_Exit') || name.includes('Staff Exit') || name.includes('80-2') || name.includes('Exit')
                     );
 
-                    if (!staffExitSheetName) {
-                        showError('Sheet containing "Staff_Exit" or "Staff Exit" not found. Available sheets: ' + workbook.SheetNames.join(', '));
+                    // Default to Sheet3 if specific name not found
+                    if (!staffExitSheetName && workbook.SheetNames.length >= 3) {
+                        staffExitSheetName = workbook.SheetNames[2]; // Default to third sheet
+                        console.log('Using third sheet for Staff Exit:', staffExitSheetName);
+                    } else if (!staffExitSheetName) {
+                        showError('Could not find Staff Exit sheet. Need at least 3 sheets. Available: ' + workbook.SheetNames.join(', '));
                         return;
                     }
 
                     const staffExitSheet = workbook.Sheets[staffExitSheetName];
+                    if (!staffExitSheet) {
+                        showError('Could not read staff exit sheet. Available sheets: ' + workbook.SheetNames.join(', '));
+                        return;
+                    }
                     staffExitData = XLSX.utils.sheet_to_json(staffExitSheet, { raw: false, dateNF: 'yyyy-mm-dd' });
 
                     filesLoaded.employee = true;
