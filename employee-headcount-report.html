@@ -310,30 +310,54 @@
                     const data = new Uint8Array(e.target.result);
                     const workbook = XLSX.read(data, { type: 'array', cellDates: true });
 
-                    // Read Staff List tab
-                    const staffListSheet = workbook.Sheets['80-1_Staff_List'];
-                    if (!staffListSheet) {
-                        showError('Sheet "80-1_Staff_List" not found in the workbook');
+                    // Check if workbook has sheets
+                    if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+                        showError('No sheets found in the workbook. The file may be encrypted or corrupted.');
                         return;
                     }
+
+                    console.log('Available sheets:', workbook.SheetNames);
+
+                    // Find Staff List tab (case insensitive and flexible matching)
+                    let staffListSheetName = workbook.SheetNames.find(name =>
+                        name.includes('Staff_List') || name.includes('Staff List')
+                    );
+
+                    if (!staffListSheetName) {
+                        showError('Sheet containing "Staff_List" or "Staff List" not found. Available sheets: ' + workbook.SheetNames.join(', '));
+                        return;
+                    }
+
+                    const staffListSheet = workbook.Sheets[staffListSheetName];
                     staffListData = XLSX.utils.sheet_to_json(staffListSheet, { raw: false, dateNF: 'yyyy-mm-dd' });
 
-                    // Read Staff Exit tab
-                    const staffExitSheet = workbook.Sheets['80-2_Staff_Exit'];
-                    if (!staffExitSheet) {
-                        showError('Sheet "80-2_Staff_Exit" not found in the workbook');
+                    // Find Staff Exit tab (case insensitive and flexible matching)
+                    let staffExitSheetName = workbook.SheetNames.find(name =>
+                        name.includes('Staff_Exit') || name.includes('Staff Exit')
+                    );
+
+                    if (!staffExitSheetName) {
+                        showError('Sheet containing "Staff_Exit" or "Staff Exit" not found. Available sheets: ' + workbook.SheetNames.join(', '));
                         return;
                     }
+
+                    const staffExitSheet = workbook.Sheets[staffExitSheetName];
                     staffExitData = XLSX.utils.sheet_to_json(staffExitSheet, { raw: false, dateNF: 'yyyy-mm-dd' });
 
                     filesLoaded.employee = true;
                     checkFilesLoaded();
                     hideError();
-                    console.log('Employee data loaded:', staffListData.length, 'active records,', staffExitData.length, 'exit records');
+                    console.log('Employee data loaded from sheets:', staffListSheetName, 'and', staffExitSheetName);
+                    console.log('Records:', staffListData.length, 'active,', staffExitData.length, 'exits');
                 } catch (error) {
-                    showError('Error reading employee file: ' + error.message);
+                    if (error.message.includes('Unsupported file') || error.message.includes('CFB')) {
+                        showError('Error: File appears to be encrypted or password-protected. Please save as a new unencrypted XLSX file.');
+                    } else {
+                        showError('Error reading employee file: ' + error.message);
+                    }
                     filesLoaded.employee = false;
                     checkFilesLoaded();
+                    console.error(error);
                 }
             };
             reader.readAsArrayBuffer(file);
@@ -349,6 +373,14 @@
                     const data = new Uint8Array(e.target.result);
                     const workbook = XLSX.read(data, { type: 'array', cellDates: true });
 
+                    // Check if workbook has sheets
+                    if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+                        showError('No sheets found in the absence file. The file may be encrypted or corrupted.');
+                        return;
+                    }
+
+                    console.log('Available sheets in absence file:', workbook.SheetNames);
+
                     // Get first sheet (assuming absence data is in first sheet)
                     const firstSheetName = workbook.SheetNames[0];
                     const absenceSheet = workbook.Sheets[firstSheetName];
@@ -361,11 +393,17 @@
                     filesLoaded.absence = true;
                     checkFilesLoaded();
                     hideError();
-                    console.log('Absence data loaded:', absenceData.length, 'records');
+                    console.log('Absence data loaded from sheet:', firstSheetName);
+                    console.log('Records:', absenceData.length);
                 } catch (error) {
-                    showError('Error reading absence file: ' + error.message);
+                    if (error.message.includes('Unsupported file') || error.message.includes('CFB')) {
+                        showError('Error: Absence file appears to be encrypted or password-protected. Please save as a new unencrypted XLSX file.');
+                    } else {
+                        showError('Error reading absence file: ' + error.message);
+                    }
                     filesLoaded.absence = false;
                     checkFilesLoaded();
+                    console.error(error);
                 }
             };
             reader.readAsArrayBuffer(file);
