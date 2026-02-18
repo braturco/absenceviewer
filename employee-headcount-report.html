@@ -485,6 +485,11 @@
                 // Filter data by Market Sector and User Person Type
                 const targetSector = 'CA-BL002-Earth & Environment';
 
+                // Debug: Show unique market sectors
+                const uniqueSectors = new Set(staffListData.map(emp => emp['Market Sector']));
+                console.log('Unique Market Sectors found:', Array.from(uniqueSectors));
+                console.log('Looking for:', targetSector);
+
                 const filteredStaffList = staffListData.filter(emp =>
                     emp['Market Sector'] === targetSector &&
                     emp['User Person Type'] !== 'ICRC'
@@ -494,6 +499,13 @@
                     emp['Market Sector'] === targetSector &&
                     emp['User Person Type'] !== 'ICRC'
                 );
+
+                console.log('Filtered counts:', filteredStaffList.length, 'staff,', filteredStaffExit.length, 'exits');
+
+                if (filteredStaffList.length === 0 && filteredStaffExit.length === 0) {
+                    showError('No employees found with Market Sector "' + targetSector + '". Available sectors: ' + Array.from(uniqueSectors).join(', '));
+                    return;
+                }
 
                 // Group by Market Sub Sector
                 const subSectors = new Set();
