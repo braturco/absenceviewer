@@ -486,13 +486,14 @@
                 // Use flexible matching to handle special characters
                 const targetSectorMatch = (sector) => {
                     if (!sector) return false;
-                    return sector.includes('CA-BL002');
+                    const normalizedSector = String(sector).toUpperCase().trim();
+                    return normalizedSector.includes('BL002');
                 };
 
                 // Debug: Show unique market sectors
                 const uniqueSectors = new Set(staffListData.map(emp => emp['Market Sector']));
                 console.log('Unique Market Sectors found:', Array.from(uniqueSectors));
-                console.log('Filtering for sectors containing: CA-BL002 and Earth');
+                console.log('Filtering for sectors containing: BL002 (case insensitive)');
 
                 const filteredStaffList = staffListData.filter(emp =>
                     targetSectorMatch(emp['Market Sector']) &&
@@ -507,7 +508,7 @@
                 console.log('Filtered counts:', filteredStaffList.length, 'staff,', filteredStaffExit.length, 'exits');
 
                 if (filteredStaffList.length === 0 && filteredStaffExit.length === 0) {
-                    showError('No employees found with Market Sector containing "CA-BL002" and "Earth". Available sectors: ' + Array.from(uniqueSectors).join(', '));
+                    showError('No employees found with Market Sector containing "BL002". Available sectors: ' + Array.from(uniqueSectors).join(', '));
                     return;
                 }
 
