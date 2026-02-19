@@ -507,7 +507,7 @@
                 console.log('Filtered counts:', filteredStaffList.length, 'staff,', filteredStaffExit.length, 'exits');
 
                 if (filteredStaffList.length === 0 && filteredStaffExit.length === 0) {
-                    showError('No employees found with Market Sector "' + targetSector + '". Available sectors: ' + Array.from(uniqueSectors).join(', '));
+                    showError('No employees found with Market Sector containing "CA-BL002" and "Earth". Available sectors: ' + Array.from(uniqueSectors).join(', '));
                     return;
                 }
 
