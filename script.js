@@ -663,6 +663,9 @@ function generateReport() {
         cell.addEventListener('mouseleave', hideTooltip);
     });
 
+    // Fix second header row sticky top offset
+    setupStickySecondRow(reportDiv);
+
     // Setup expand/collapse all buttons
     document.getElementById('expandAllBtn').addEventListener('click', expandAll);
     document.getElementById('collapseAllBtn').addEventListener('click', collapseAll);
@@ -1026,6 +1029,9 @@ function generateDailyReport() {
 
     // Setup custom tooltips
     setupCustomTooltips(reportDiv);
+
+    // Fix second header row sticky top offset
+    setupStickySecondRow(reportDiv);
 
     // Setup expand/collapse functionality
     document.getElementById('expandAllBtn').addEventListener('click', expandAll);
@@ -2070,6 +2076,15 @@ function getWeekEndDate(weekNum) {
     const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const day = days[endDate.getDay()];
     return `${mm}/${dd}`;
+}
+
+function setupStickySecondRow(container) {
+    const firstRow = container.querySelector('thead tr:first-child');
+    if (!firstRow) return;
+    const firstRowHeight = firstRow.getBoundingClientRect().height;
+    container.querySelectorAll('thead tr:nth-child(2) th').forEach(th => {
+        th.style.top = firstRowHeight + 'px';
+    });
 }
 
 function setupCustomTooltips(container) {

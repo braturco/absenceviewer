@@ -132,7 +132,8 @@
 
         #report {
             margin-top: 30px;
-            overflow-x: auto;
+            overflow: auto;
+            max-height: 75vh;
         }
 
         /* Table styling */
@@ -156,7 +157,7 @@
         }
 
         td {
-            padding: 10px 8px;
+            padding: 6px 8px;
             border-bottom: 1px solid #eee;
         }
 
@@ -164,9 +165,39 @@
             background: #f8f9fa;
         }
 
-        .table-container {
-            overflow-x: auto;
-            margin-top: 20px;
+        /* Sticky left columns — first 3 columns freeze on horizontal scroll */
+        tbody td:nth-child(1) { position: sticky; left: 0;     z-index: 2; }
+        tbody td:nth-child(2) { position: sticky; left: 150px; z-index: 2; }
+        tbody td:nth-child(3) { position: sticky; left: 300px; z-index: 2; }
+
+        /* Corner th cells (sticky in both x and y) */
+        thead tr:first-child th:nth-child(1) { position: sticky; left: 0;     z-index: 15; }
+        thead tr:first-child th:nth-child(2) { position: sticky; left: 150px; z-index: 15; }
+        thead tr:first-child th:nth-child(3) { position: sticky; left: 300px; z-index: 15; }
+
+        /* Opaque backgrounds for sticky body cells per row type */
+        tr.market-header  td:nth-child(1), tr.market-header  td:nth-child(2), tr.market-header  td:nth-child(3) { background-color: #a0a0a0; }
+        tr.dept-header    td:nth-child(1), tr.dept-header    td:nth-child(2), tr.dept-header    td:nth-child(3) { background-color: #d0d0d0; }
+        tr.person-row     td:nth-child(1), tr.person-row     td:nth-child(2), tr.person-row     td:nth-child(3) { background-color: white; }
+        tr.person-row:nth-child(even) td:nth-child(1),
+        tr.person-row:nth-child(even) td:nth-child(2),
+        tr.person-row:nth-child(even) td:nth-child(3) { background-color: #f0f0f0; }
+        tr.overall-total  td:nth-child(1), tr.overall-total  td:nth-child(2), tr.overall-total  td:nth-child(3) { background-color: #888888; color: white; font-weight: bold; }
+
+        /* Tooltip */
+        .custom-tooltip {
+            position: fixed;
+            background: white;
+            border: 1px solid #ccc;
+            padding: 8px 10px;
+            max-width: 400px;
+            font-size: 12px;
+            white-space: pre-wrap;
+            z-index: 1000;
+            display: none;
+            box-shadow: 2px 2px 6px rgba(0,0,0,0.25);
+            border-radius: 4px;
+            pointer-events: none;
         }
     </style>
 </head>
