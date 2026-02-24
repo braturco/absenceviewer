@@ -183,7 +183,7 @@ tr.overall-total td.holiday-week-cell {
 }
 
 .custom-tooltip {
-    position: absolute;
+    position: fixed;
     background: white;
     border: 1px solid #ccc;
     padding: 8px;

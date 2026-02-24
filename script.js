@@ -668,6 +668,8 @@ function generateReport() {
     document.getElementById('collapseAllBtn').addEventListener('click', collapseAll);
 }
 
+
+//TEST CODE ONLY, NEEDS TO BE UPDATED TO CHOSE DATES BASED ON THE LONG WEEKEND IN 2026
 function generateLongWeekendReport() {
     const longWeekendDates = [
         new Date(2026, 1, 13), // Feb 13
@@ -2068,6 +2070,20 @@ function getWeekEndDate(weekNum) {
     const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const day = days[endDate.getDay()];
     return `${mm}/${dd}`;
+}
+
+function setupCustomTooltips(container) {
+    if (!document.getElementById('tooltip')) {
+        const tooltipDiv = document.createElement('div');
+        tooltipDiv.id = 'tooltip';
+        tooltipDiv.className = 'custom-tooltip';
+        document.body.appendChild(tooltipDiv);
+    }
+    const cells = container.querySelectorAll('td[data-tooltip], th[data-tooltip]');
+    cells.forEach(cell => {
+        cell.addEventListener('mouseenter', showTooltip);
+        cell.addEventListener('mouseleave', hideTooltip);
+    });
 }
 
 function showTooltip(e) {
