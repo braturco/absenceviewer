@@ -165,24 +165,35 @@
             background: #f8f9fa;
         }
 
-        /* Sticky left columns — first 3 columns freeze on horizontal scroll */
-        tbody td:nth-child(1) { position: sticky; left: 0;     z-index: 2; }
-        tbody td:nth-child(2) { position: sticky; left: 150px; z-index: 2; }
-        tbody td:nth-child(3) { position: sticky; left: 300px; z-index: 2; }
-
         /* Corner th cells (sticky in both x and y) */
         thead tr:first-child th:nth-child(1) { position: sticky; left: 0;     z-index: 15; }
         thead tr:first-child th:nth-child(2) { position: sticky; left: 150px; z-index: 15; }
         thead tr:first-child th:nth-child(3) { position: sticky; left: 300px; z-index: 15; }
+        /* Visual separator after the 3rd frozen header column */
+        thead tr:first-child th:nth-child(3) { box-shadow: 3px 0 5px -1px rgba(0,0,0,0.3); }
 
-        /* Opaque backgrounds for sticky body cells per row type */
-        tr.market-header  td:nth-child(1), tr.market-header  td:nth-child(2), tr.market-header  td:nth-child(3) { background-color: #a0a0a0; }
-        tr.dept-header    td:nth-child(1), tr.dept-header    td:nth-child(2), tr.dept-header    td:nth-child(3) { background-color: #d0d0d0; }
-        tr.person-row     td:nth-child(1), tr.person-row     td:nth-child(2), tr.person-row     td:nth-child(3) { background-color: white; }
+        /*
+         * Sticky body columns — must be per-row-type because colspan differs per row:
+         *   person-row:     <td/><td/><td>Name</td>          → freeze children 1,2,3
+         *   dept-header:    <td/><td colspan=2>Name</td>      → freeze children 1,2 (child 3 is data)
+         *   market-header:  <td colspan=2>Name</td><td/>      → freeze children 1,2 (child 3 is data)
+         *   overall-total:  <td colspan=3>Total</td>          → freeze child 1 only (child 2 is data)
+         */
+        tr.person-row    td:nth-child(1) { position: sticky; left: 0;     z-index: 2; background: white; }
+        tr.person-row    td:nth-child(2) { position: sticky; left: 150px; z-index: 2; background: white; }
+        tr.person-row    td:nth-child(3) { position: sticky; left: 300px; z-index: 2; background: white; box-shadow: 3px 0 5px -1px rgba(0,0,0,0.3); }
         tr.person-row:nth-child(even) td:nth-child(1),
         tr.person-row:nth-child(even) td:nth-child(2),
-        tr.person-row:nth-child(even) td:nth-child(3) { background-color: #f0f0f0; }
-        tr.overall-total  td:nth-child(1), tr.overall-total  td:nth-child(2), tr.overall-total  td:nth-child(3) { background-color: #888888; color: white; font-weight: bold; }
+        tr.person-row:nth-child(even) td:nth-child(3) { background: #f0f0f0; }
+
+        tr.dept-header   td:nth-child(1) { position: sticky; left: 0;     z-index: 2; background: #d0d0d0; }
+        tr.dept-header   td:nth-child(2) { position: sticky; left: 150px; z-index: 2; background: #d0d0d0; box-shadow: 3px 0 5px -1px rgba(0,0,0,0.3); }
+
+        /* Market child-2 is the empty col-3 cell (visually at offset 300px after the colspan=2 first cell) */
+        tr.market-header td:nth-child(1) { position: sticky; left: 0;     z-index: 2; background: #a0a0a0; }
+        tr.market-header td:nth-child(2) { position: sticky; left: 300px; z-index: 2; background: #a0a0a0; box-shadow: 3px 0 5px -1px rgba(0,0,0,0.3); }
+
+        tr.overall-total td:nth-child(1) { position: sticky; left: 0;     z-index: 2; background: #888888; color: white; font-weight: bold; box-shadow: 3px 0 5px -1px rgba(0,0,0,0.3); }
 
         /* Tooltip */
         .custom-tooltip {
